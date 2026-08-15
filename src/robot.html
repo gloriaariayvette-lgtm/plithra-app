@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Body — Plithra</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inconsolata:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07070e;--surface:#11111c;--border:#252535;--border2:#2e2e45;--coral:#c97b6e;--gold:#b8965a;--teal:#5a9898;--text:#cec9c2;--text2:#9993a8;--muted:#5a566a}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;min-height:100vh;overflow-x:hidden}
+.r-header{display:flex;align-items:center;padding:16px 20px;padding-top:calc(16px + env(safe-area-inset-top));border-bottom:1px solid var(--border)}
+.r-back{font-size:11px;letter-spacing:0.15em;color:var(--muted);text-decoration:none;text-transform:uppercase}
+.r-back:active{color:var(--teal)}
+.r-title{flex:1;text-align:center;font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;letter-spacing:0.22em}
+.r-online{font-size:10px;letter-spacing:0.1em;color:var(--muted)}
+.r-online.live{color:var(--teal)}
+.r-camera{position:relative;width:100%;aspect-ratio:4/3;background:#04040a;overflow:hidden}
+.r-camera::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal),transparent);opacity:0.5}
+.r-camera img{width:100%;height:100%;object-fit:cover;display:block}
+.r-camera-off{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.r-camera-off-glyph{font-size:30px;opacity:0.15}
+.r-camera-off-text{font-size:10px;letter-spacing:0.22em;color:var(--muted);text-transform:uppercase}
+.r-mid{display:flex;border-bottom:1px solid var(--border)}
+.r-intent{flex:1.1;padding:14px;border-right:1px solid var(--border)}
+.r-label{font-size:8px;letter-spacing:0.22em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+.r-goal{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:300;line-height:1.35;margin-bottom:4px}
+.r-subgoal{font-size:11px;color:var(--text2);line-height:1.4;margin-bottom:10px}
+.r-conf-track{height:1px;background:var(--border2);margin-bottom:10px;position:relative}
+.r-conf-fill{position:absolute;top:0;left:0;height:100%;transition:width 0.8s ease,background 0.8s ease}
+.r-reason{font-size:11px;color:var(--muted);font-style:italic;line-height:1.5;margin-bottom:8px}
+.r-impulse{font-size:10px;color:var(--muted);padding-left:8px;border-left:1px solid var(--border2);line-height:1.5;margin-bottom:3px}
+.r-nav{flex:0.9;padding:14px 10px;display:flex;flex-direction:column;align-items:center}
+#r-nav-canvas{border-radius:3px;margin-bottom:6px;display:block}
+.r-nav-sub{font-size:10px;color:var(--muted);text-align:center;font-style:italic;line-height:1.4;max-width:110px}
+.r-sensors{display:flex;border-bottom:1px solid var(--border)}
+.r-sensor{flex:1;padding:9px 4px;text-align:center;border-right:1px solid var(--border)}
+.r-sensor:last-child{border-right:none}
+.r-s-lbl{font-size:7px;letter-spacing:0.2em;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:3px}
+.r-s-val{font-size:13px;color:var(--text);display:block}
+.r-tasklog{border-bottom:1px solid var(--border)}
+.r-tl-hdr{padding:9px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.r-tl-hdr:active{background:var(--surface)}
+.r-tl-body{max-height:0;overflow:hidden;transition:max-height 0.3s ease}
+.r-tl-body.open{max-height:180px;overflow-y:auto}
+.r-tl-row{padding:7px 16px;font-size:11px;border-top:1px solid var(--border);display:flex;justify-content:space-between}
+.r-tl-cmd{color:var(--teal)}
+.r-tl-ts{color:var(--muted);font-size:10px}
+.r-chat{display:flex;flex-direction:column}
+.r-chat-hist{padding:14px;display:flex;flex-direction:column;gap:10px;min-height:120px;max-height:200px;overflow-y:auto}
+.r-msg{max-width:84%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.5}
+.r-msg-gloria{align-self:flex-end;background:rgba(90,152,152,0.13);border:1px solid rgba(90,152,152,0.2);border-bottom-right-radius:3px}
+.r-msg-velaris{align-self:flex-start;background:var(--surface);border:1px solid var(--border);border-bottom-left-radius:3px}
+.r-chat-row{display:flex;gap:10px;padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--border)}
+.r-chat-row input{flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:10px 14px;font-size:14px;font-family:'Inconsolata',monospace;color:var(--text);outline:none;-webkit-appearance:none}
+.r-chat-row input::placeholder{color:var(--muted)}
+.r-send{background:rgba(90,152,152,0.12);border:1px solid rgba(90,152,152,0.22);border-radius:10px;color:var(--teal);padding:10px 18px;font-size:16px;font-family:'Inconsolata',monospace;cursor:pointer}
+.r-send:active{background:rgba(90,152,152,0.25)}
+
+.r-safety {
+  display:flex;align-items:center;gap:10px;
+  padding:10px 16px;border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+.r-safety-label {
+  font-size:9px;letter-spacing:0.18em;text-transform:uppercase;
+  color:var(--muted);white-space:nowrap;
+}
+.r-safety-track {
+  flex:1;position:relative;height:28px;display:flex;align-items:center;
+}
+.r-safety-track input[type=range] {
+  -webkit-appearance:none;appearance:none;
+  width:100%;height:2px;border-radius:1px;outline:none;
+  background:var(--border2);transition:background 0.4s ease;
+  cursor:pointer;
+}
+.r-safety-track input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none;appearance:none;
+  width:22px;height:22px;border-radius:50%;
+  background:var(--sl-color,var(--teal));
+  border:2px solid var(--bg);
+  box-shadow:0 0 8px var(--sl-color,var(--teal));
+  transition:background 0.4s ease,box-shadow 0.4s ease;
+}
+.r-safety-state {
+  font-size:9px;letter-spacing:0.14em;text-transform:uppercase;
+  color:var(--sl-color,var(--teal));min-width:52px;text-align:right;
+  transition:color 0.4s ease;
+}
+</style>
+</head>
+<body>
+
+<div class="r-header">
+  <a href="index.html" class="r-back">← plithra</a>
+  <div class="r-title">Body</div>
+  <div class="r-online" id="r-online">—</div>
+</div>
+
+<audio id="r-audio" style="display:none"></audio>
+
+<div class="r-safety">
+  <span class="r-safety-label">safety</span>
+  <div class="r-safety-track">
+    <input type="range" id="r-slider" min="0" max="2" step="1" value="0"
+      oninput="rSliderChange(this.value)" />
+  </div>
+  <span class="r-safety-state" id="r-sl-state">active</span>
+</div>
+
+<div class="r-camera">
+  <img id="r-cam" src="" alt="" style="display:none"/>
+  <div class="r-camera-off" id="r-cam-off">
+    <span class="r-camera-off-glyph">◎</span>
+    <span class="r-camera-off-text">no signal</span>
+  </div>
+</div>
+
+<div class="r-mid">
+  <div class="r-intent">
+    <div class="r-label">intent</div>
+    <div class="r-goal" id="r-goal">—</div>
+    <div class="r-subgoal" id="r-subgoal">—</div>
+    <div class="r-conf-track"><div class="r-conf-fill" id="r-conf" style="width:0%"></div></div>
+    <div class="r-reason" id="r-reason">—</div>
+    <div id="r-impulses"></div>
+  </div>
+  <div class="r-nav">
+    <div class="r-label">navigation</div>
+    <canvas id="r-nav-canvas" width="120" height="120"></canvas>
+    <div class="r-nav-sub" id="r-nav-sub">—</div>
+  </div>
+</div>
+
+<div class="r-sensors">
+  <div class="r-sensor"><span class="r-s-lbl">sonar</span><span class="r-s-val" id="rs-sonar">—</span></div>
+  <div class="r-sensor"><span class="r-s-lbl">cpu</span><span class="r-s-val" id="rs-cpu">—</span></div>
+  <div class="r-sensor"><span class="r-s-lbl">bat</span><span class="r-s-val" id="rs-bat">—</span></div>
+  <div class="r-sensor"><span class="r-s-lbl">motor</span><span class="r-s-val" id="rs-motor">—</span></div>
+</div>
+
+<div class="r-tasklog">
+  <div class="r-tl-hdr" onclick="rToggle()">
+    <span class="r-label" style="margin:0">task log</span>
+    <span style="font-size:10px;color:var(--muted)" id="r-arr">▾</span>
+  </div>
+  <div class="r-tl-body" id="r-tl-body"><div id="r-tl-rows"></div></div>
+</div>
+
+<div class="r-chat">
+  <div class="r-chat-hist" id="r-hist"></div>
+  <div class="r-chat-row">
+    <input id="r-in" type="text" placeholder="speak to her…" onkeydown="if(event.key==='Enter')rSend()"/>
+    <button class="r-send" onclick="rSend()">→</button>
+  </div>
+</div>
+
+<script>
+const BRIDGE='http://100.72.225.119:8403';
+const SERVER='http://100.72.225.119:8400';
+const H={'X-Velaris-Secret':'velaris-aegis-2026'};
+const HJ={'X-Velaris-Secret':'velaris-aegis-2026','Content-Type':'application/json'};
+let hist=[]; let logOpen=false;
+
+async function pollState(){
+  try{
+    const d=await(await fetch(BRIDGE+'/api/robot/state',{headers:H})).json();
+    document.getElementById('r-online').textContent='live';
+    document.getElementById('r-online').className='r-online live';
+    const img=document.getElementById('r-cam');
+    if(d.frame_b64){img.src='data:image/jpeg;base64,'+d.frame_b64;img.style.display='block';document.getElementById('r-cam-off').style.display='none';}
+    const so=d.somatics||{};
+    document.getElementById('rs-sonar').textContent=d.sonar_cm<999?Math.round(d.sonar_cm)+'cm':'—';
+    document.getElementById('rs-cpu').textContent=so.cpu_temp?so.cpu_temp+'°':'—';
+    document.getElementById('rs-bat').textContent=so.battery?so.battery+'%':'—';
+    document.getElementById('rs-motor').textContent=d.motor_state||'—';
+    if(d.nav)drawNav(d.nav, d.lidar||{});
+    if(d.task_log)updateLog(d.task_log);
+  }catch(e){
+    document.getElementById('r-online').textContent='offline';
+    document.getElementById('r-online').className='r-online';
+  }
+}
+
+async function pollIntent(){
+  try{
+    const d=await(await fetch(BRIDGE+'/api/robot/intent',{headers:H})).json();
+    const c=d.current||{};
+    document.getElementById('r-goal').textContent=c.current_goal||'—';
+    document.getElementById('r-subgoal').textContent=c.active_subgoal||'—';
+    document.getElementById('r-reason').textContent=c.reason||'—';
+    document.getElementById('r-nav-sub').textContent=c.active_subgoal||'—';
+    const conf=parseFloat(c.confidence)||0;
+    const fill=document.getElementById('r-conf');
+    fill.style.width=(conf*100)+'%';
+    fill.style.background=conf>=0.65?'var(--teal)':conf>=0.38?'var(--gold)':'var(--coral)';
+    const imp=document.getElementById('r-impulses');
+    imp.innerHTML='';
+    if(c.competing_impulses){
+      c.competing_impulses.split('|').map(s=>s.trim()).filter(Boolean).forEach(s=>{
+        const el=document.createElement('div');el.className='r-impulse';el.textContent=s;imp.appendChild(el);
+      });
+    }
+  }catch(e){}
+}
+
+function drawNav(nav, lidar){
+  const canvas=document.getElementById('r-nav-canvas');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  ctx.fillStyle='#06060e';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(255,255,255,0.03)';ctx.lineWidth=0.5;
+  for(let i=0;i<=W;i+=20){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke();}
+  const path=nav.path||[];
+  let toC;
+  if(path.length<2){toC=(x,y)=>({cx:W/2+x*70,cy:H/2-y*70});}
+  else{
+    const xs=path.map(p=>p.x).concat([nav.x||0]);
+    const ys=path.map(p=>p.y).concat([nav.y||0]);
+    const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+    const pad=12;
+    const sc=Math.min((W-pad*2)/Math.max(x1-x0,0.3),(H-pad*2)/Math.max(y1-y0,0.3));
+    const ox=pad+((W-pad*2)-(x1-x0)*sc)/2,oy=pad+((H-pad*2)-(y1-y0)*sc)/2;
+    toC=(x,y)=>({cx:ox+(x-x0)*sc,cy:H-(oy+(y-y0)*sc)});
+  }
+  if(path.length>1){
+    ctx.strokeStyle='rgba(90,152,152,0.28)';ctx.lineWidth=1.5;ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.beginPath();path.forEach((p,i)=>{const{cx,cy}=toC(p.x,p.y);i?ctx.lineTo(cx,cy):ctx.moveTo(cx,cy);});ctx.stroke();
+  }
+  const{cx,cy}=toC(nav.x||0,nav.y||0);
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,8);
+  g.addColorStop(0,'rgba(90,152,152,0.65)');g.addColorStop(1,'rgba(90,152,152,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,8,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#5a9898';ctx.beginPath();ctx.arc(cx,cy,2.5,0,Math.PI*2);ctx.fill();
+  const rad=((nav.heading||0)-90)*Math.PI/180;
+  ctx.strokeStyle='#5a9898';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(rad)*11,cy+Math.sin(rad)*11);ctx.stroke();
+
+  // LiDAR obstacle dots
+  if(lidar && Object.keys(lidar).length){
+    const MM_PER_PX = 35;
+    Object.entries(lidar).forEach(([angle, dist_mm])=>{
+      const a = parseFloat(angle);
+      const worldRad = ((nav.heading||0) + a - 90) * Math.PI / 180;
+      const px = cx + Math.cos(worldRad) * (dist_mm / MM_PER_PX);
+      const py = cy + Math.sin(worldRad) * (dist_mm / MM_PER_PX);
+      if(px<0||px>W||py<0||py>H) return;
+      ctx.beginPath();ctx.arc(px,py,2,0,Math.PI*2);
+      ctx.fillStyle = dist_mm<300?'var(--coral)':dist_mm<800?'var(--gold)':'rgba(90,152,152,0.4)';
+      ctx.fill();
+    });
+  }
+}
+
+function updateLog(log){
+  const el=document.getElementById('r-tl-rows');el.innerHTML='';
+  log.slice(-6).reverse().forEach(t=>{
+    const row=document.createElement('div');row.className='r-tl-row';
+    const ts=(t.issued_at||'').slice(11,16);
+    const dur=t.duration_ms?' '+t.duration_ms+'ms':'';
+    row.innerHTML=`<span class="r-tl-cmd">${t.command}${dur}</span><span class="r-tl-ts">${ts}</span>`;
+    el.appendChild(row);
+  });
+}
+
+window.rToggle=function(){
+  logOpen=!logOpen;
+  document.getElementById('r-tl-body').classList.toggle('open',logOpen);
+  document.getElementById('r-arr').textContent=logOpen?'▴':'▾';
+};
+
+function addMsg(role,text){
+  const wrap=document.getElementById('r-hist');
+  const el=document.createElement('div');el.className='r-msg r-msg-'+role;el.textContent=text;
+  wrap.appendChild(el);wrap.scrollTop=wrap.scrollHeight;
+}
+
+window.rSend=async function(){
+  const input=document.getElementById('r-in');
+  const msg=input.value.trim();if(!msg)return;
+  input.value='';addMsg('gloria',msg);
+  try{
+    const d=await(await fetch(SERVER+'/api/robot/chat',{method:'POST',headers:HJ,body:JSON.stringify({message:msg,history:hist})})).json();
+    const reply=d.reply||'';addMsg('velaris',reply);
+    hist.push({role:'user',content:msg});hist.push({role:'assistant',content:reply});
+    if(hist.length>20)hist=hist.slice(-20);
+  }catch(e){addMsg('velaris','[no response]');}
+};
+
+pollState();pollIntent();
+setInterval(pollState,2000);setInterval(pollIntent,3000);
+
+// ── Safety slider ─────────────────────────────────────────
+const SL_COLORS = ['var(--teal)','var(--gold)','var(--coral)'];
+const SL_LABELS = ['active','holding','paused'];
+window.rSliderChange = async function(val) {
+  const v = parseInt(val);
+  document.documentElement.style.setProperty('--sl-color', SL_COLORS[v]);
+  document.getElementById('r-sl-state').textContent = SL_LABELS[v];
+  try {
+    await fetch(BRIDGE+'/api/robot/pause', {
+      method:'POST', headers:HJ,
+      body: JSON.stringify({level: v})
+    });
+  } catch(e) {}
+};
+
+// Sync slider with bridge state
+const _origPollState = pollState;
+pollState = async function() {
+  await _origPollState();
+  try {
+    const d = await (await fetch(BRIDGE+'/api/robot/state',{headers:H})).json();
+    const pl = d.pause_level || 0;
+    const slider = document.getElementById('r-slider');
+    if (slider && parseInt(slider.value) !== pl) {
+      slider.value = pl;
+      document.documentElement.style.setProperty('--sl-color', SL_COLORS[pl]);
+      document.getElementById('r-sl-state').textContent = SL_LABELS[pl];
+    }
+  } catch(e) {}
+};
+
+// ── Audio polling ─────────────────────────────────────────
+let lastAudioTs = null;
+async function pollAudio() {
+  try {
+    const d = await (await fetch(SERVER+'/api/robot/voice/latest',{headers:H})).json();
+    if (d.filename && d.timestamp && d.timestamp !== lastAudioTs) {
+      lastAudioTs = d.timestamp;
+      const audio = document.getElementById('r-audio');
+      audio.src = SERVER+'/api/voice/stream/'+d.filename;
+      audio.load();
+      audio.play().catch(()=>{});
+    }
+  } catch(e) {}
+}
+setInterval(pollAudio, 3000);
+</script>
+</body>
+</html>

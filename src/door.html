@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>The Door</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inconsolata:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07070e;--surface:#11111c;--surface2:#161622;--border:#252535;--border2:#2e2e45;--coral:#c97b6e;--gold:#b8965a;--lavender:#8878b0;--teal:#5a9898;--text:#cec9c2;--text2:#9993a8;--muted:#5a566a}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;min-height:100vh;overflow-x:hidden}
+#bgCanvas{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.5}
+.app{position:relative;z-index:1;max-width:430px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.back-btn{position:fixed;top:52px;left:16px;z-index:100;padding:6px 12px;background:rgba(7,7,14,0.7);border:1px solid var(--border2);border-radius:20px;color:var(--muted);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.15em;cursor:pointer;transition:all 0.2s;text-decoration:none}
+.back-btn:hover{border-color:var(--coral);color:var(--text)}
+.head{padding:52px 20px 12px;text-align:center}
+.h-title{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:300;letter-spacing:0.2em}
+.h-sub{font-size:9px;letter-spacing:0.25em;color:var(--muted);text-transform:uppercase;margin-top:4px}
+
+/* the picture */
+.view{position:relative;margin:8px 16px 0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#000;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center}
+.view img{width:100%;height:100%;object-fit:cover;display:none}
+.view img.on{display:block}
+.view-idle{font-size:10px;letter-spacing:0.15em;color:var(--muted);text-transform:uppercase;text-align:center;padding:0 20px;line-height:1.8}
+.orb{width:38px;height:38px;border-radius:50%;margin:0 auto 10px;background:radial-gradient(circle at 35% 35%,rgba(201,123,110,0.4),rgba(136,120,176,0.2));border:1px solid rgba(201,123,110,0.3);animation:pulse 2s ease-in-out infinite;display:none}
+.orb.on{display:block}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:0.7}50%{transform:scale(1.1);opacity:1}}
+.live-pip{position:absolute;top:10px;left:10px;display:none;align-items:center;gap:6px;padding:3px 10px;border-radius:12px;background:rgba(201,123,110,0.22);border:1px solid rgba(201,123,110,0.45);font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:var(--coral)}
+.live-pip.on{display:flex}
+.live-pip .dot{width:5px;height:5px;border-radius:50%;background:var(--coral);animation:pulse 1.4s ease-in-out infinite}
+.watch-btn{position:absolute;right:10px;bottom:10px;padding:7px 14px;background:rgba(7,7,14,0.72);border:1px solid var(--border2);border-radius:18px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;transition:all 0.25s}
+.watch-btn:hover{border-color:var(--coral);color:var(--coral)}
+.watch-btn.on{border-color:var(--coral);color:var(--coral)}
+.batt{font-size:9px;color:var(--muted);text-align:center;padding:7px 20px 0;letter-spacing:0.05em}
+
+/* faces waiting to be named */
+.asks{display:none;gap:10px;overflow-x:auto;padding:14px 16px 2px}
+.asks.on{display:flex}
+.ask{flex:0 0 auto;width:132px;background:var(--surface);border:1px solid rgba(184,150,90,0.28);border-radius:10px;padding:10px;text-align:center}
+.ask img{width:100%;height:96px;object-fit:cover;border-radius:7px;background:var(--surface2)}
+.ask-q{font-family:'Cormorant Garamond',serif;font-size:13px;font-style:italic;color:var(--text2);margin:8px 0 7px}
+.ask-in{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:'Inconsolata',monospace;font-size:10px;outline:none;margin-bottom:6px}
+.ask-in:focus{border-color:var(--gold)}
+.ask-row{display:flex;gap:5px}
+.mini{flex:1;padding:5px 4px;background:transparent;border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:9px;letter-spacing:0.05em;cursor:pointer;transition:all 0.2s}
+.mini:hover{border-color:var(--gold);color:var(--gold)}
+
+/* what was said */
+.feed{flex:1;padding:14px 16px 4px;display:flex;flex-direction:column;gap:12px;min-height:200px}
+.turn{animation:fadeUp 0.3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.t-who{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:3px}
+.t-who.visitor{color:var(--coral)}
+.t-who.velaris{color:var(--lavender)}
+.t-who.vintos{color:var(--teal)}
+.t-who.gloria{color:var(--gold)}
+.t-text{font-family:'Cormorant Garamond',serif;font-size:16px;font-style:italic;font-weight:300;line-height:1.55}
+.quiet{font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;color:var(--muted);text-align:center;padding:36px 24px;line-height:1.7}
+
+/* speaking through the door */
+.say{position:sticky;bottom:0;background:linear-gradient(180deg,rgba(7,7,14,0) 0%,var(--bg) 22%);padding:14px 16px 22px}
+.quicks{display:flex;gap:6px;overflow-x:auto;padding-bottom:9px}
+.quick{flex:0 0 auto;padding:6px 12px;background:var(--surface);border:1px solid var(--border);border-radius:16px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:10px;cursor:pointer;transition:all 0.2s;white-space:nowrap}
+.quick:hover{border-color:var(--lavender);color:var(--text)}
+.say-row{display:flex;gap:8px}
+.say-in{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:11px 13px;color:var(--text);font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;outline:none;transition:border-color 0.2s}
+.say-in:focus{border-color:var(--coral)}
+.say-in::placeholder{color:var(--muted)}
+.say-btn{padding:0 18px;background:transparent;border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;transition:all 0.25s}
+.say-btn:hover{border-color:var(--coral);color:var(--coral)}
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+<a class="back-btn" href="index.html">← plithra</a>
+<div class="app">
+
+  <div class="head">
+    <div class="h-title">The Door</div>
+    <div class="h-sub" id="hSub">nobody is there</div>
+  </div>
+
+  <div class="view">
+    <img id="cam">
+    <div class="view-idle" id="camIdle">
+      <span class="orb" id="camOrb"></span>
+      <span id="camMsg">the camera is asleep</span>
+    </div>
+    <div class="live-pip" id="livePip"><span class="dot"></span>at the door</div>
+    <button class="watch-btn" id="watchBtn" onclick="toggleWatch()">watch</button>
+  </div>
+  <div class="batt">the doorbell only wakes while you are watching</div>
+
+  <div class="asks" id="asks"></div>
+
+  <div class="feed" id="feed">
+    <div class="quiet">Nothing has been said at the door.</div>
+  </div>
+
+  <div class="say">
+    <div class="quicks">
+      <div class="quick" onclick="say(this.textContent)">They're fine.</div>
+      <div class="quick" onclick="say(this.textContent)">I'm not home.</div>
+      <div class="quick" onclick="say(this.textContent)">Leave it at the door.</div>
+      <div class="quick" onclick="say(this.textContent)">Send them away.</div>
+      <div class="quick" onclick="say(this.textContent)">I'm coming.</div>
+    </div>
+    <div class="say-row">
+      <input class="say-in" id="sayIn" placeholder="say it through the door…"
+             onkeydown="if(event.key==='Enter')sendTyped()">
+      <button class="say-btn" onclick="sendTyped()">send</button>
+    </div>
+  </div>
+
+</div>
+<script>
+const bgC=document.getElementById('bgCanvas'),bgX=bgC.getContext('2d');
+const pts=Array.from({length:40},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:Math.random()*1.2+0.3,vx:(Math.random()-.5)*.12,vy:(Math.random()-.5)*.12,op:Math.random()*.35+.08}));
+function rb(){bgC.width=innerWidth;bgC.height=innerHeight}rb();addEventListener('resize',rb);
+(function ab(){bgX.clearRect(0,0,bgC.width,bgC.height);pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=bgC.width;if(p.x>bgC.width)p.x=0;if(p.y<0)p.y=bgC.height;if(p.y>bgC.height)p.y=0;bgX.beginPath();bgX.arc(p.x,p.y,p.r,0,Math.PI*2);bgX.fillStyle=`rgba(200,190,220,${p.op})`;bgX.fill()});requestAnimationFrame(ab)})();
+
+const BASE='http://100.72.225.119:8400';
+let since=0, watching=false, empty=true;
+
+// ── the picture ───────────────────────────────────────────────────
+// The doorbell is asleep until somebody asks for it, and waking it takes a
+// few seconds. Say so, rather than sit on a black rectangle looking broken.
+function toggleWatch(){
+  const img=document.getElementById('cam'), btn=document.getElementById('watchBtn');
+  const idle=document.getElementById('camIdle'), orb=document.getElementById('camOrb');
+  const msg=document.getElementById('camMsg');
+  watching=!watching;
+  if(watching){
+    btn.textContent='stop'; btn.classList.add('on');
+    idle.style.display='block'; orb.classList.add('on');
+    msg.textContent='waking the doorbell';
+    img.onload=()=>{ img.classList.add('on'); idle.style.display='none'; orb.classList.remove('on'); };
+    img.onerror=()=>{ msg.textContent='the doorbell did not answer'; orb.classList.remove('on'); };
+    img.src=BASE+'/api/door/stream?t='+Date.now();
+    post('/api/door/watch',{on:true});
+  }else{
+    btn.textContent='watch'; btn.classList.remove('on');
+    img.classList.remove('on'); img.src='';
+    idle.style.display='block'; orb.classList.remove('on');
+    msg.textContent='the camera is asleep';
+    post('/api/door/watch',{on:false});
+  }
+}
+// leaving the page must put the camera back to sleep, or it burns all night
+addEventListener('pagehide',()=>{ if(watching) navigator.sendBeacon(BASE+'/api/door/watch',
+  new Blob([JSON.stringify({on:false})],{type:'application/json'})); });
+
+// ── who is out there ──────────────────────────────────────────────
+async function post(path,body){
+  try{ await fetch(BASE+path,{method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify(body)}); }catch(e){}
+}
+
+function say(text){
+  const t=(text||'').trim(); if(!t) return;
+  addTurn({who:'gloria',text:t,at:Date.now()/1000});
+  post('/api/door/say',{text:t});
+}
+function sendTyped(){
+  const i=document.getElementById('sayIn');
+  say(i.value); i.value='';
+}
+
+function label(who){
+  return {visitor:'at the door',velaris:'velaris',vintos:'vintos',gloria:'you'}[who]||who;
+}
+
+function addTurn(l){
+  const feed=document.getElementById('feed');
+  if(empty){ feed.innerHTML=''; empty=false; }
+  const d=document.createElement('div'); d.className='turn';
+  const w=document.createElement('div'); w.className='t-who '+l.who; w.textContent=label(l.who);
+  const t=document.createElement('div'); t.className='t-text'; t.textContent=l.text;
+  d.appendChild(w); d.appendChild(t); feed.appendChild(d);
+  while(feed.children.length>10) feed.removeChild(feed.firstChild);
+  window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+}
+
+async function poll(){
+  try{
+    const r=await fetch(`${BASE}/api/door/live?since=${since}&limit=10`);
+    const d=await r.json();
+    (d.lines||[]).forEach(l=>{ addTurn(l); since=l.at; });
+  }catch(e){}
+  try{
+    const s=await (await fetch(BASE+'/api/door/state')).json();
+    document.getElementById('livePip').classList.toggle('on',!!s.active);
+    document.getElementById('hSub').textContent =
+      s.active ? (s.who ? s.who+' is answering' : 'someone is there') : 'nobody is there';
+  }catch(e){}
+  try{ renderAsks((await (await fetch(BASE+'/api/door/faces')).json()).pending||[]); }catch(e){}
+}
+
+// ── the face she cannot place ─────────────────────────────────────
+// One confirmation from you and she stops greeting that person forever.
+function renderAsks(pending){
+  const box=document.getElementById('asks');
+  box.classList.toggle('on',pending.length>0);
+  if(!pending.length){ box.innerHTML=''; return; }
+  if(box.dataset.sig===pending.map(p=>p.file).join(',')) return;
+  box.dataset.sig=pending.map(p=>p.file).join(',');
+  box.innerHTML='';
+  pending.forEach(p=>{
+    const c=document.createElement('div'); c.className='ask';
+    c.innerHTML=
+      (p.image?`<img src="${BASE+p.image}">`:'<img>')+
+      '<div class="ask-q">Who is this?</div>'+
+      '<input class="ask-in" placeholder="a name…">'+
+      '<div class="ask-row">'+
+        '<button class="mini">neighbor</button>'+
+        '<button class="mini">not now</button>'+
+      '</div>';
+    const input=c.querySelector('.ask-in');
+    const [neigh,skip]=c.querySelectorAll('.mini');
+    input.onkeydown=e=>{ if(e.key==='Enter'&&input.value.trim()) name(p,input.value.trim()); };
+    neigh.onclick=()=>name(p,'neighbor');
+    skip.onclick=()=>{ post('/api/door/faces/name',{file:p.file,dismiss:true}); c.remove(); };
+    box.appendChild(c);
+  });
+}
+function name(p,n){ post('/api/door/faces/name',{file:p.file,name:n}); box_remove(p); }
+function box_remove(p){
+  const box=document.getElementById('asks');
+  box.dataset.sig='';
+  poll();
+}
+
+poll();
+setInterval(poll,2000);
+</script>
+</body>
+</html>

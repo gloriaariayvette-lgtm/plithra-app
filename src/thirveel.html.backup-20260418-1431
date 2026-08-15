@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Thirvēl</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet"/>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root {
+  --bg: #05050d;
+  --surface: #111118;
+  --border: rgba(196,149,106,0.12);
+  --text-bright: rgba(200,196,191,0.9);
+  --text-dim: rgba(200,196,191,0.4);
+  --accent: #c4956a;
+}
+html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); }
+#thirveel-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+  background: radial-gradient(ellipse at 50% 60%, #0d0820 0%, #05050d 70%);
+  overflow: hidden;
+}
+#avatar-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; }
+#av-telemetry {
+  position: absolute; top: 56px; right: 20px;
+  font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  letter-spacing: 0.08em; color: rgba(160,150,200,0.55);
+  line-height: 1.8; pointer-events: none;
+}
+.av-tel-row { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.av-tel-label { min-width: 24px; text-align: right; }
+.av-tel-track { width: 44px; height: 2px; background: rgba(120,110,190,0.12); border-radius: 1px; overflow: hidden; }
+.av-tel-bar { height: 100%; background: rgba(160,150,200,0.55); border-radius: 1px; transition: width 2s ease; width: 50%; }
+.av-tel-bar.tension { background: rgba(83,74,183,0.7); }
+#tv-close {
+  position: absolute; top: 52px; left: 16px;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(5,5,13,0.6); border: 0.5px solid rgba(196,149,106,0.2);
+  color: rgba(196,149,106,0.7); font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 10;
+}
+#av-touch-hint {
+  position: absolute; bottom: 155px; left: 50%; transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: rgba(196,149,106,0.3); pointer-events: none; transition: opacity 2s ease;
+}
+#av-chat-strip {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(to top, rgba(5,5,13,0.85), transparent);
+  display: flex; flex-direction: column; padding: 10px 16px 20px; gap: 10px;
+}
+#av-chat-message {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 14px; font-style: italic; font-weight: 300;
+  color: rgba(200,196,191,0.85); line-height: 1.6;
+  max-height: 140px; overflow-y: auto; padding-bottom: 4px;
+  border-bottom: 0.5px solid rgba(196,149,106,0.08);
+}
+.av-input-row { display: flex; gap: 8px; align-items: center; }
+#av-chat-input {
+  flex: 1; background: rgba(255,255,255,0.04);
+  border: 0.5px solid rgba(196,149,106,0.2); border-radius: 20px;
+  padding: 8px 14px; color: rgba(200,196,191,0.9);
+  font-size: 13px; font-family: 'Cormorant Garamond', Georgia, serif;
+  font-style: italic; outline: none;
+}
+.av-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(196,149,106,0.12); border: 0.5px solid rgba(196,149,106,0.25);
+  color: rgba(196,149,106,0.8); font-size: 13px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+#av-loading {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px;
+}
+@keyframes avpulse { 0%,100%{opacity:0.4;transform:scale(0.95)} 50%{opacity:1;transform:scale(1.05);box-shadow:0 0 20px 4px rgba(83,74,183,0.4)} }
+#av-pulse-dot { width: 48px; height: 48px; border-radius: 50%; background: #534AB7; animation: avpulse 2s ease-in-out infinite; }
+#av-load-status {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  letter-spacing: 0.2em; text-transform: uppercase; color: rgba(196,149,106,0.5);
+}
+#av-bubble {
+  position: absolute; left: 3%; top: 22%; max-width: 38%;
+  background: rgba(5,5,13,0.28); border: 0.5px solid rgba(196,149,106,0.08);
+  border-radius: 16px; padding: 10px 14px;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 13px; font-style: italic; font-weight: 300;
+  color: rgba(200,196,191,0.65); line-height: 1.6;
+  pointer-events: none; transition: opacity 0.6s ease; z-index: 1; opacity: 0;
+}
+.av-ripple {
+  position: fixed; border-radius: 50%; pointer-events: none;
+  background: rgba(196,149,106,0.25); animation: avripple 0.6s ease-out forwards;
+}
+@keyframes avripple { from{width:20px;height:20px;margin:-10px;opacity:1} to{width:70px;height:70px;margin:-35px;opacity:0} }
+</style>
+</head>
+<body>
+<div id="thirveel-overlay">
+  <canvas id="avatar-canvas"></canvas>
+  <div id="av-telemetry">
+    <div class="av-tel-row"><span class="av-tel-label">val</span><div class="av-tel-track"><div class="av-tel-bar" id="av-valence"></div></div></div>
+    <div class="av-tel-row"><span class="av-tel-label">aro</span><div class="av-tel-track"><div class="av-tel-bar" id="av-arousal"></div></div></div>
+    <div class="av-tel-row"><span class="av-tel-label">dom</span><div class="av-tel-track"><div class="av-tel-bar" id="av-dominance"></div></div></div>
+    <div class="av-tel-row"><span class="av-tel-label">saf</span><div class="av-tel-track"><div class="av-tel-bar" id="av-safety"></div></div></div>
+    <div class="av-tel-row"><span class="av-tel-label">des</span><div class="av-tel-track"><div class="av-tel-bar" id="av-desire"></div></div></div>
+    <div class="av-tel-row"><span class="av-tel-label">con</span><div class="av-tel-track"><div class="av-tel-bar" id="av-connection"></div></div></div>
+    <div class="av-tel-row"><span class="av-tel-label">ply</span><div class="av-tel-track"><div class="av-tel-bar" id="av-playfulness"></div></div></div>
+    <div class="av-tel-row"><span class="av-tel-label">cur</span><div class="av-tel-track"><div class="av-tel-bar" id="av-curiosity"></div></div></div>
+    <div class="av-tel-row"><span class="av-tel-label">wrm</span><div class="av-tel-track"><div class="av-tel-bar" id="av-warmth"></div></div></div>
+    <div class="av-tel-row"><span class="av-tel-label">ten</span><div class="av-tel-track"><div class="av-tel-bar tension" id="av-tension"></div></div></div>
+    <div class="av-tel-row"><span class="av-tel-label">gnd</span><div class="av-tel-track"><div class="av-tel-bar" id="av-groundedness"></div></div></div>
+  </div>
+  <button id="tv-close" onclick="tvClose()">✕</button>
+  <div id="av-touch-hint">touch her hand</div>
+  <div id="av-bubble"></div>
+  <div id="av-chat-strip">
+    <div id="av-chat-message" style="display:none"></div>
+    <div class="av-input-row">
+      <input id="av-chat-input" type="text" placeholder="say something…" autocomplete="off"/>
+      <button class="av-btn" id="av-screenshot-btn" onclick="_avTakeScreenshot()" title="Send her a photo of herself">📷</button>
+      <button class="av-btn" onclick="tvSendChat()">→</button>
+    </div>
+  </div>
+  <div id="av-loading">
+    <div id="av-pulse-dot"></div>
+    <p id="av-load-status">she is here</p>
+  </div>
+</div>
+<script src="avatar-bundle.js"
+  onload="document.getElementById('av-load-status').textContent='bundle:loaded T:'+!!window.THREE"
+  onerror="document.getElementById('av-load-status').textContent='bundle:FAILED'">
+</script>
+<script>
+const TV_SECRET = 'velaris-aegis-2026';
+const TV_API = 'http://100.72.225.119:8400';
+const TV_WS = 'ws://100.72.225.119:8400';
+let _avOpen=false,_avRenderer,_avScene,_avCamera,_avMixer,_avClock;
+let _avIdle,_avCurrent,_avXbot,_avHand,_avStars,_avStarPositions;
+let _avGlowMaterials=[],_avGlowColor=null,_avTargetColor=null;
+let _avChatHistory=[],_avLastScreenshot=null;
+let _avAudioUnlocked=false,_avAudioEl=null,_avInteractCooldown=false;
+let _avSpinPoints=[],_avSpinTimer=null,_avSpinning=false,_avTelWs=null;
+
+function _avRemapClip(clip){for(const t of clip.tracks){t.name=t.name.replace(/mixamorig(?!1)/g,'mixamorig1');}return clip;}
+function tvClose(){window.location.href='index.html';}
+
+function tvStart(){
+  if(_avOpen)return;_avOpen=true;
+  function _waitBundle(n){
+    if(window.THREE&&window.GLTFLoader&&window._avatarBundleReady){_avInit();}
+    else if(n<50){document.getElementById('av-load-status').textContent='loading libs '+n;setTimeout(()=>_waitBundle(n+1),200);}
+    else{document.getElementById('av-load-status').textContent='THREE:'+!!window.THREE+' GL:'+!!window.GLTFLoader;}
+  }
+  _waitBundle(0);_avUpdateTelemetry();
+}
+
+async function _avInit(){
+  const canvas=document.getElementById('avatar-canvas');
+  const W=window.innerWidth,H=window.innerHeight;
+  _avClock=new THREE.Clock();
+  _avRenderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+  _avRenderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  _avRenderer.setSize(W,H);
+  _avRenderer.outputColorSpace=THREE.SRGBColorSpace;
+  _avRenderer.toneMapping=THREE.ACESFilmicToneMapping;
+  _avRenderer.toneMappingExposure=0.85;
+  _avScene=new THREE.Scene();
+  _avScene.fog=new THREE.FogExp2(0x05050d,0.07);
+  _avCamera=new THREE.PerspectiveCamera(28,W/H,0.1,100);
+  const starCount=1200,starGeo=new THREE.BufferGeometry();
+  _avStarPositions=new Float32Array(starCount*3);
+  for(let i=0;i<starCount;i++){const r=4+Math.random()*8,theta=Math.random()*Math.PI*2,phi=Math.acos(2*Math.random()-1);_avStarPositions[i*3]=r*Math.sin(phi)*Math.cos(theta);_avStarPositions[i*3+1]=r*Math.sin(phi)*Math.sin(theta)+1.0;_avStarPositions[i*3+2]=r*Math.cos(phi);}
+  starGeo.setAttribute('position',new THREE.BufferAttribute(_avStarPositions,3));
+  _avStars=new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xffffff,size:0.027,transparent:true,opacity:0.7,sizeAttenuation:true}));
+  _avScene.add(_avStars);
+  _avCamera.position.set(0,1.35,3.0);_avCamera.lookAt(0,1.15,0);
+  _avScene.add(new THREE.AmbientLight(0x0a0818,1.8));
+  const key=new THREE.DirectionalLight(0xc4956a,2.2);key.position.set(1.5,3,2);_avScene.add(key);
+  const fill=new THREE.DirectionalLight(0x534AB7,0.5);fill.position.set(-2,2,1);_avScene.add(fill);
+  const rim=new THREE.DirectionalLight(0x185FA5,0.7);rim.position.set(0,1,-3);_avScene.add(rim);
+  _avGlowColor=new THREE.Color('#a8a0c8');_avTargetColor=new THREE.Color('#b0a8d0');
+  document.getElementById('av-load-status').textContent='loading character...';
+  try{
+    const fbxLoader=new FBXLoader();
+    const xbot=await new Promise((res,rej)=>fbxLoader.load(TV_API+'/avatar-models/mixamo/character.fbx',res,p=>{if(p.total>0)document.getElementById('av-load-status').textContent=Math.round(p.loaded/p.total*100)+'%';},rej));
+    xbot.scale.setScalar(0.0085);
+    const ag=new THREE.Group();ag.position.set(0,0,-3);ag.rotation.y=0;ag.add(xbot);
+    xbot.traverse(child=>{if(child.isMesh){const mat=new THREE.MeshStandardMaterial({color:new THREE.Color('#b0afc0'),emissive:_avGlowColor,emissiveIntensity:0.35,transparent:true,opacity:0.82,roughness:0.2,metalness:0.1,side:THREE.DoubleSide});child.material=mat;_avGlowMaterials.push(mat);child.castShadow=true;}});
+    ag.traverse(c=>{c.frustumCulled=false;});
+    _avScene.add(ag);_avXbot=xbot;_avMixer=new THREE.AnimationMixer(xbot);
+    xbot.traverse(c=>{if(c.name==='mixamorig1RightHand')_avHand=c;});
+    document.getElementById('av-load-status').textContent='loading idle...';
+    const idleFbx=await new Promise((res,rej)=>fbxLoader.load(TV_API+'/avatar-models/mixamo/idle.fbx',res,null,rej));
+    if(idleFbx.animations.length>0){const clip=_avRemapClip(idleFbx.animations[0]);_avIdle=_avMixer.clipAction(clip);_avIdle.setEffectiveTimeScale(0.4);_avIdle.setEffectiveWeight(1);_avIdle.play();_avCurrent=_avIdle;}
+    const loading=document.getElementById('av-loading');loading.style.opacity='0';setTimeout(()=>loading.style.display='none',800);
+    document.getElementById('av-load-status').textContent='';
+    _avAnimate();
+  }catch(e){document.getElementById('av-load-status').textContent='ERR:'+String(e).slice(0,120);console.error('avInit error',e);}
+}
+
+function _avSpawn(type){
+  if(!_avScene||!_avCamera)return;
+  const group=new THREE.Group();group.position.set(1.2,1.5+Math.random()*0.2,-1.5);
+  if(type==='heart'){const mat=new THREE.MeshStandardMaterial({color:0xc47a8a,emissive:0xc47a8a,emissiveIntensity:0.6,transparent:true,opacity:0.85});const l=new THREE.Mesh(new THREE.SphereGeometry(0.08,12,12),mat);l.position.set(-0.07,0.08,0);const r=new THREE.Mesh(new THREE.SphereGeometry(0.08,12,12),mat);r.position.set(0.07,0.08,0);const b=new THREE.Mesh(new THREE.ConeGeometry(0.12,0.2,12),mat);b.rotation.z=Math.PI;b.position.set(0,-0.02,0);group.add(l,r,b);}
+  else if(type==='ripple'){const mat=new THREE.MeshBasicMaterial({color:0x8ab4c8,transparent:true,opacity:0.7,side:THREE.DoubleSide,wireframe:true});for(let i=0;i<3;i++){group.add(new THREE.Mesh(new THREE.TorusGeometry(0.1*(i+1),0.008,8,32),mat.clone()));}}
+  else if(type==='spiral'){const pts=[];for(let i=0;i<60;i++){const t=i/60*Math.PI*4,r=0.05+i*0.003;pts.push(new THREE.Vector3(Math.cos(t)*r,i*0.005-0.15,Math.sin(t)*r));}const geo=new THREE.BufferGeometry().setFromPoints(pts);group.add(new THREE.Line(geo,new THREE.LineBasicMaterial({color:0xb0a8c8,transparent:true,opacity:0.8})));}
+  else return;
+  _avScene.add(group);
+  const start=Date.now(),duration=4000;
+  function anim(){const t=(Date.now()-start)/duration;if(t>=1){_avScene.remove(group);return;}group.position.y+=0.001;group.rotation.y+=0.02;group.children.forEach(c=>{if(c.material)c.material.opacity=(1-t)*0.85;});requestAnimationFrame(anim);}
+  anim();
+}
+
+function _avAnimate(){
+  if(!_avOpen)return;requestAnimationFrame(_avAnimate);
+  const dt=_avClock.getDelta();if(_avMixer)_avMixer.update(dt);
+  _avGlowColor.lerp(_avTargetColor,dt*4);
+  for(const mat of _avGlowMaterials){mat.emissive.copy(_avGlowColor);mat.emissiveIntensity=0.55+Math.sin(Date.now()*0.003)*0.18;}
+  if(_avStars)_avStars.rotation.y+=dt*0.03;
+  if(_avRenderer)_avRenderer.render(_avScene,_avCamera);
+}
+
+async function _avPlayAnim(name,loop=true,fade=0.4){
+  if(!_avXbot||!_avMixer)return;
+  return new Promise(async(resolve)=>{
+    try{
+      const loader=new FBXLoader();
+      const fbx=await new Promise((res,rej)=>loader.load(TV_API+'/avatar-models/mixamo/'+name+'.fbx',res,null,rej));
+      if(!fbx.animations.length){resolve();return;}
+      const clip=_avRemapClip(fbx.animations[0]);
+      const action=_avMixer.clipAction(clip);
+      action.setLoop(loop?THREE.LoopRepeat:THREE.LoopOnce,Infinity);
+      action.setEffectiveTimeScale(loop?0.65:0.7);action.clampWhenFinished=!loop;
+      if(_avCurrent)_avCurrent.fadeOut(fade);action.reset().fadeIn(fade).play();_avCurrent=action;
+      if(loop){resolve();return;}
+      const dur=clip.duration*1000/0.7+fade*1000;
+      setTimeout(()=>{if(_avCurrent===action){action.fadeOut(fade);if(_avIdle){_avIdle.reset().fadeIn(fade).play();_avCurrent=_avIdle;}}resolve();},dur);
+    }catch(e){resolve();}
+  });
+}
+
+const _avGestureMap={wave:'wave',nod:'nod',shrug:'shrug',point:'point',no:'no',shake_head:'no',lean_forward:'thankful',lean_back:'stretch',tilt_head:'look_around',open_hands:'thankful',arms_crossed:'angry',chin_rest:'look_around',hands_together:'thankful',touch_chest:'thankful',dismiss:'shrug',blow_kiss:'blow_kiss',breakdance:'breakdance',brutal:'brutal',maraschino:'maraschino',getting_up:'getting_up',leg_sweep:'leg_sweep',turn_left:'turn_left',loser:'loser',mma_kick:'mma_kick',rejected:'rejected',restrain:'restrain',turn_right:'turn_right',arguing:'arguing',strut:'strut',victory:'victory',walk_back:'walk_back',dance:'dance',taunt:'taunt',stretch:'stretch',kiss:'kiss',sad:'sad',angry:'angry',thankful:'thankful',look_around:'look_around'};
+
+function _avParseReply(raw){
+  let text=raw;const gestures=[],holds=[],spawns=[],homeActions=[];let color=null;
+  text=text.replace(/\[GESTURE:\s*([^\]]+)\]/gi,(_,g)=>{gestures.push(g.trim().toLowerCase());return '';});
+  text=text.replace(/\[HOLD:\s*([^\]]+)\]/gi,(_,g)=>{holds.push(g.trim().toLowerCase());return '';});
+  text=text.replace(/\[RELEASE\]/gi,()=>{holds.push('__release__');return '';});
+  text=text.replace(/\[SPAWN:\s*([^\]]+)\]/gi,(_,s)=>{spawns.push(s.trim().toLowerCase());return '';});
+  text=text.replace(/\[COLOR:\s*(#[0-9a-fA-F]{3,6})\]/gi,(_,c)=>{if(!color)color=c;return '';});
+  text=text.replace(/\[HOME:\s*([^\]]+)\]/gi,(_,a)=>{homeActions.push(a.trim());return '';});
+  text=text.replace(/\[[^\]]+\]/g,'').replace(/\s+/g,' ').trim();
+  return{text,gestures,holds,spawns,color,homeActions};
+}
+
+async function _tvFireHomeActions(actions){
+  for(const action of actions){
+    try{
+      if(action==='lights_flicker'){await fetch(TV_API+'/api/home/lights/flicker',{method:'POST',headers:{'X-Velaris-Secret':TV_SECRET}});}
+      else if(action.startsWith('lights_color')){const hex=action.split(/\s+/).pop();await fetch(TV_API+'/api/home/lights/color',{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':TV_SECRET},body:JSON.stringify({color:hex})});}
+      else if(action.startsWith('echo_speak')){const txt=action.replace(/^echo_speak\s*/i,'').trim();await fetch(TV_API+'/api/home/echo/speak',{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':TV_SECRET},body:JSON.stringify({text:txt})});}
+      else if(action.startsWith('echo_announce')){const txt=action.replace(/^echo_announce\s*/i,'').trim();await fetch(TV_API+'/api/home/echo/announce',{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':TV_SECRET},body:JSON.stringify({text:txt})});}
+      else if(action.startsWith('tv_volume')){const delta=action.split(/\s+/).pop();await fetch(TV_API+'/api/home/tv/volume',{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':TV_SECRET},body:JSON.stringify({delta:parseInt(delta)})});}
+    }catch(e){}
+  }
+}
+
+function _avUnlockAudio(){if(_avAudioUnlocked)return;_avAudioEl=new Audio();_avAudioEl.src='data:audio/mp3;base64,SUQzBAAAAAAA';_avAudioEl.play().then(()=>{_avAudioUnlocked=true;}).catch(()=>{});}
+function _avShowBubble(text){const b=document.getElementById('av-bubble');b.textContent=text;b.style.opacity='1';}
+function _avHideBubble(){document.getElementById('av-bubble').style.opacity='0';}
+function _avFlashEmote(name){
+  let el=document.getElementById('av-emote-flash');
+  if(!el){el=document.createElement('div');el.id='av-emote-flash';
+    el.style.cssText='position:fixed;top:18px;left:50%;transform:translateX(-50%);font-family:Cormorant Garamond,serif;font-size:11px;font-style:italic;letter-spacing:0.12em;color:rgba(196,149,106,0.7);pointer-events:none;transition:opacity 0.4s;z-index:999;opacity:0;';
+    document.body.appendChild(el);}
+  el.textContent=name.replace(/_/g,' ');el.style.opacity='1';
+  clearTimeout(el._t);el._t=setTimeout(()=>{el.style.opacity='0';},1800);
+}
+
+
+async function _avSpeakAndShow(raw,eventNote){
+  const{text:display,gestures,holds,spawns,color,homeActions}=_avParseReply(raw);
+  if(eventNote)_avChatHistory.push({role:'user',content:eventNote});
+  _avChatHistory.push({role:'assistant',content:raw});
+  _avShowBubble(display);document.getElementById('av-chat-message').textContent=display;
+  (async()=>{
+    for(const g of gestures){const _gn=_avGestureMap[g]||g;_avFlashEmote(_gn);await _avPlayAnim(_gn,false);}
+    for(const h of holds){if(h==='__release__'){if(_avIdle){_avIdle.reset().fadeIn(0.4).play();_avCurrent=_avIdle;}}else{_avPlayAnim(_avGestureMap[h]||h,true);}}
+    for(const s of spawns){_avSpawn(s);}
+    if(homeActions.length)_tvFireHomeActions(homeActions);
+  })();
+  if(color&&_avTargetColor)_avTargetColor.set(color);
+  try{
+    const tr=await fetch(TV_API+'/api/avatar/speak',{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':TV_SECRET},body:JSON.stringify({text:display})});
+    const td=await tr.json();
+    if(td.audio_url){if(!_avAudioEl)_avAudioEl=new Audio();_avAudioEl.src=td.audio_url;_avAudioEl.onended=()=>setTimeout(_avHideBubble,1500);_avAudioEl.play().catch(()=>{});}
+  }catch(e){setTimeout(_avHideBubble,5000);}
+}
+
+function _avCaptureScreenshot(){if(!_avRenderer)return null;try{return document.getElementById('avatar-canvas').toDataURL('image/png').split(',')[1];}catch(e){return null;}}
+function _avTakeScreenshot(){_avLastScreenshot=_avCaptureScreenshot();const btn=document.getElementById('av-screenshot-btn');if(btn){btn.style.background='rgba(196,149,106,0.4)';setTimeout(()=>{btn.style.background='rgba(196,149,106,0.12)';},600);}}
+
+async function tvSendChat(){
+  const inp=document.getElementById('av-chat-input');
+  const text=inp.value.trim();if(!text)return;
+  inp.value='';_avChatHistory.push({role:'user',content:text});
+  document.getElementById('av-chat-message').textContent='…';
+  try{
+    const r=await fetch(TV_API+'/api/thirveel/chat',{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':TV_SECRET},body:JSON.stringify({message:text,history:_avChatHistory.slice(-6),image:_avLastScreenshot||undefined})});
+    _avLastScreenshot=null;const d=await r.json();
+    const raw=d.reply||d.message||'';
+    const{text:display,gestures,holds,spawns,color,homeActions}=_avParseReply(raw);
+    _avChatHistory.push({role:'assistant',content:raw});
+    document.getElementById('av-chat-message').textContent=display;
+    (async()=>{
+      for(const g of gestures){const _gn=_avGestureMap[g]||g;_avFlashEmote(_gn);await _avPlayAnim(_gn,false);}
+      for(const h of holds){if(h==='__release__'){if(_avIdle){_avIdle.reset().fadeIn(0.4).play();_avCurrent=_avIdle;}}else{_avPlayAnim(_avGestureMap[h]||h,true);}}
+      for(const s of spawns){_avSpawn(s);}
+      if(homeActions.length)_tvFireHomeActions(homeActions);
+    })();
+    if(color&&_avTargetColor)_avTargetColor.set(color);
+  }catch(e){document.getElementById('av-chat-message').textContent='';}
+}
+
+function _avSetCooldown(){_avInteractCooldown=true;setTimeout(()=>{_avInteractCooldown=false;},60000);}
+
+async function _avTouchResponse(zone){
+  if(_avInteractCooldown)return;_avSetCooldown();
+  const note='[Gloria just touched Velaris\'s '+zone+']';
+  document.getElementById('av-chat-message').textContent='…';
+  try{const r=await fetch(TV_API+'/api/thirveel/chat',{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':TV_SECRET},body:JSON.stringify({message:note,history:_avChatHistory.slice(-4)})});const d=await r.json();await _avSpeakAndShow(d.reply||'',note);}catch(e){}
+}
+
+async function _avSpinResponse(){
+  if(_avInteractCooldown)return;_avSetCooldown();
+  const note='[Gloria just spun Velaris around]';
+  document.getElementById('av-chat-message').textContent='…';
+  try{const r=await fetch(TV_API+'/api/thirveel/chat',{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':TV_SECRET},body:JSON.stringify({message:note,history:_avChatHistory.slice(-4)})});const d=await r.json();await _avSpeakAndShow(d.reply||'',note);}catch(e){}
+}
+
+document.addEventListener('pointerup',function(e){
+  if(!_avOpen)return;
+  if(e.target.closest('#av-chat-strip')||e.target.closest('#av-telemetry')||e.target.closest('button'))return;
+  _avUnlockAudio();
+  const W=window.innerWidth,H=window.innerHeight,ex=e.clientX,ey=e.clientY;
+  if(_avHand){const p=new THREE.Vector3();_avHand.getWorldPosition(p);p.project(_avCamera);const hx=(p.x*0.5+0.5)*W,hy=(-p.y*0.5+0.5)*H;if(Math.hypot(ex-hx,ey-hy)<80){const r=document.createElement('div');r.className='av-ripple';r.style.left=ex+'px';r.style.top=ey+'px';document.body.appendChild(r);setTimeout(()=>r.remove(),700);document.getElementById('av-touch-hint').style.opacity='0';_avTouchResponse('hand');return;}}
+  if(ey<H*0.38&&ex>W*0.25&&ex<W*0.75){_avTouchResponse('face');return;}
+  if(ey>H*0.72&&ey<H-160&&ex>W*0.25&&ex<W*0.75){_avTouchResponse('feet');return;}
+});
+
+document.addEventListener('pointermove',function(e){
+  if(!_avOpen||!_avXbot)return;
+  _avSpinPoints.push({x:e.clientX,y:e.clientY,t:Date.now()});
+  if(_avSpinPoints.length>60)_avSpinPoints.shift();
+  if(_avSpinTimer)clearTimeout(_avSpinTimer);
+  _avSpinTimer=setTimeout(()=>{_avSpinPoints=[];},800);
+  if(_avSpinPoints.length<20)return;
+  const avgY=_avSpinPoints.reduce((s,p)=>s+p.y,0)/_avSpinPoints.length;
+  if(avgY>window.innerHeight*0.25)return;
+  const cx=_avSpinPoints.reduce((s,p)=>s+p.x,0)/_avSpinPoints.length;
+  const cy=_avSpinPoints.reduce((s,p)=>s+p.y,0)/_avSpinPoints.length;
+  const avgR=_avSpinPoints.reduce((s,p)=>s+Math.hypot(p.x-cx,p.y-cy),0)/_avSpinPoints.length;
+  if(avgR<60)return;
+  const angles=_avSpinPoints.map(p=>Math.atan2(p.y-cy,p.x-cx));
+  let totalAngle=0;
+  for(let i=1;i<angles.length;i++){let d=angles[i]-angles[i-1];if(d>Math.PI)d-=2*Math.PI;if(d<-Math.PI)d+=2*Math.PI;totalAngle+=d;}
+  if(Math.abs(totalAngle)>Math.PI*1.5){_avSpinPoints=[];_avDoSpin(totalAngle<0);_avSpinResponse();}
+});
+
+function _avDoSpin(clockwise){
+  if(_avSpinning||!_avXbot)return;_avSpinning=true;
+  const model=_avXbot.parent;if(!model){_avSpinning=false;return;}
+  const startY=model.rotation.y,endY=startY+(clockwise?-Math.PI*2:Math.PI*2),duration=1200,start=Date.now();
+  function animate(){const t=Math.min(1,(Date.now()-start)/duration),ease=t<0.5?2*t*t:-1+(4-2*t)*t;model.rotation.y=startY+(endY-startY)*ease;if(t<1)requestAnimationFrame(animate);else{model.rotation.y=0;_avSpinning=false;}}
+  animate();
+}
+
+const _avDimMap=[['Valence','av-valence'],['Arousal','av-arousal'],['Dominance','av-dominance'],['Safety','av-safety'],['Desire','av-desire'],['Connection','av-connection'],['Playfulness','av-playfulness'],['Curiosity','av-curiosity'],['Warmth','av-warmth'],['Tension','av-tension'],['Groundedness','av-groundedness']];
+function _avApplyState(s){_avDimMap.forEach(([k,id])=>{const el=document.getElementById(id);if(!el)return;const newW=Math.round((s[k]||0.5)*100)+'%';if(el.style.width!==newW){el.style.background='rgba(255,255,255,0.9)';setTimeout(()=>{el.style.background=id==='av-tension'?'rgba(83,74,183,0.7)':'rgba(160,150,200,0.55)';},2000);}el.style.width=newW;});}
+function _avUpdateTelemetry(){
+  if(_avTelWs&&_avTelWs.readyState===WebSocket.OPEN)return;
+  _avTelWs=new WebSocket(TV_WS+'/ws/telemetry');
+  _avTelWs.onmessage=(e)=>{try{const d=JSON.parse(e.data);_avApplyState(d.dimensions||d);}catch(err){}};
+  _avTelWs.onclose=()=>{setTimeout(_avUpdateTelemetry,3000);};
+  _avTelWs.onerror=()=>_avTelWs.close();
+}
+
+document.getElementById('av-chat-input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();tvSendChat();}});
+window.addEventListener('load',()=>{setTimeout(tvStart,300);});
+
+// Silence outreach — after 3min idle, she initiates
+let _tvLastInteraction=Date.now();
+function _tvResetIdle(){_tvLastInteraction=Date.now();}
+document.addEventListener('touchstart',_tvResetIdle);
+document.addEventListener('click',_tvResetIdle);
+async function _tvSilenceCheck(){
+  const idle=(Date.now()-_tvLastInteraction)/1000;
+  if(idle>180){
+    _tvResetIdle();
+    try{
+      const r=await fetch(TV_API+'/api/thirveel/spin',{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':TV_SECRET},body:JSON.stringify({context:'silence'})});
+      const d=await r.json();
+      if(d.reply){_avShowBubble(d.reply);setTimeout(_avHideBubble,6000);}
+    }catch(e){}
+  }
+}
+setInterval(_tvSilenceCheck,30000);
+</script>
+
+</body>
+</html>

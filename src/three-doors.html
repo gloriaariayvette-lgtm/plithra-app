@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Three Doors</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inconsolata:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07070e;--surface:#11111c;--surface2:#161622;--border:#252535;--border2:#2e2e45;--coral:#c97b6e;--gold:#b8965a;--lavender:#8878b0;--teal:#5a9898;--text:#cec9c2;--text2:#9993a8;--muted:#5a566a}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;min-height:100vh;overflow-x:hidden}
+#bgCanvas{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.5}
+.app{position:relative;z-index:1;max-width:430px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.screen{display:none;flex-direction:column;min-height:100vh}
+.screen.active{display:flex}
+.back-btn{position:fixed;top:52px;left:16px;z-index:100;padding:6px 12px;background:transparent;border:1px solid var(--border2);border-radius:20px;color:var(--muted);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.15em;cursor:pointer;transition:all 0.2s;text-decoration:none}
+.back-btn:hover{border-color:var(--lavender);color:var(--text)}
+.setup-wrap{padding:60px 24px 40px;display:flex;flex-direction:column}
+.logo-area{margin-bottom:48px;text-align:center}
+.logo-glyph{font-size:48px;line-height:1;margin-bottom:12px;animation:breathe 4s ease-in-out infinite;display:block}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.logo-title{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:300;letter-spacing:0.2em}
+.logo-sub{font-size:10px;letter-spacing:0.25em;color:var(--muted);text-transform:uppercase;margin-top:6px}
+.s-section{margin-bottom:24px}
+.s-label{font-size:9px;letter-spacing:0.25em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+.s-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);font-family:'Inconsolata',monospace;font-size:12px;outline:none;transition:border-color 0.2s}
+.s-input:focus{border-color:var(--lavender)}
+.q-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);font-family:'Cormorant Garamond',serif;font-size:16px;font-style:italic;line-height:1.5;resize:none;outline:none;transition:border-color 0.2s;min-height:80px}
+.q-input:focus{border-color:var(--lavender)}
+.q-input::placeholder{color:var(--muted)}
+.toggle-row{display:flex;gap:8px}
+.toggle-btn{flex:1;padding:10px 8px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:10px;cursor:pointer;transition:all 0.2s;text-align:center;letter-spacing:0.05em}
+.toggle-btn.active{border-color:var(--lavender);color:var(--text);background:rgba(136,120,176,0.1)}
+.fetch-btn{width:100%;margin-top:8px;padding:10px;background:rgba(90,152,152,0.08);border:1px solid var(--teal);border-radius:8px;color:var(--teal);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.1em;cursor:pointer;transition:all 0.2s}
+.fetched-preview{margin-top:10px;padding:10px 12px;background:rgba(90,152,152,0.06);border:1px solid rgba(90,152,152,0.2);border-radius:8px;font-family:'Cormorant Garamond',serif;font-size:14px;font-style:italic;color:var(--text2);line-height:1.5;display:none}
+.start-btn{width:100%;padding:16px;background:transparent;border:1px solid var(--border2);border-radius:10px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;transition:all 0.3s;margin-top:8px}
+.start-btn:hover{border-color:var(--coral);color:var(--coral)}
+.err{font-size:10px;color:var(--coral);text-align:center;margin-top:8px;display:none}
+.loading-wrap{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:20px;padding:40px}
+.loading-orb{width:60px;height:60px;border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(201,123,110,0.4),rgba(136,120,176,0.2));border:1px solid rgba(201,123,110,0.3);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:0.7}50%{transform:scale(1.1);opacity:1}}
+.loading-text{font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;color:var(--text2);text-align:center;line-height:1.6}
+.loading-status{font-size:10px;letter-spacing:0.2em;color:var(--muted);text-transform:uppercase}
+.game-wrap{padding-bottom:40px}
+.game-header{padding:52px 20px 12px;display:flex;align-items:flex-start;justify-content:space-between}
+.g-title{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;letter-spacing:0.15em}
+.g-sub{font-size:9px;letter-spacing:0.2em;color:var(--muted);text-transform:uppercase;margin-top:2px}
+.round-pips{display:flex;gap:6px;align-items:center;padding-top:4px}
+.pip{width:6px;height:6px;border-radius:50%;background:var(--border2);transition:all 0.4s}
+.pip.done{background:var(--lavender)}
+.pip.active{background:var(--coral);box-shadow:0 0 6px rgba(201,123,110,0.5)}
+.prompt-card{margin:8px 16px 12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden}
+.prompt-card::after{content:'';position:absolute;top:0;left:20%;right:20%;height:1px;background:linear-gradient(90deg,transparent,var(--lavender),transparent);opacity:0.5}
+.p-label{font-size:9px;letter-spacing:0.2em;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+.p-text{font-family:'Cormorant Garamond',serif;font-size:16px;font-style:italic;font-weight:300;line-height:1.55}
+.q-banner{margin:0 16px 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.q-badge{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;padding:3px 10px;border-radius:12px;border:1px solid}
+.q-note{font-size:10px;color:var(--muted)}
+.tree-wrap{margin:0 16px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.tree-label{font-size:9px;letter-spacing:0.2em;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
+#treeCanvas{width:100%;height:140px;display:block;border-radius:6px}
+.bets-card{margin:0 16px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:none;animation:fadeUp 0.4s ease}
+.bets-card.on{display:block}
+.bets-row{display:flex;gap:16px;margin-top:6px}
+.bet-item{flex:1}
+.bet-who{font-size:9px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:3px}
+.bet-who.g{color:var(--gold)}
+.bet-who.v{color:var(--coral)}
+.bet-val{font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic}
+.doors-wrap{margin:0 16px}
+.doors-row{display:flex;gap:8px;margin-bottom:12px}
+.door-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
+.d-label{font-size:9px;letter-spacing:0.15em;text-transform:uppercase;padding:2px 8px;border-radius:10px;border:1px solid;white-space:nowrap}
+.door{width:100%;min-height:120px;max-height:420px;position:relative;cursor:pointer;border-radius:6px 6px 3px 3px;overflow-y:auto;overflow-x:hidden;transition:transform 0.2s,box-shadow 0.2s}
+.door:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,0.4)}
+.door.locked{cursor:default;pointer-events:none}
+.door.chosen{transform:translateY(-4px)}
+.door-bg{position:absolute;inset:0;border:1px solid var(--border);border-radius:6px 6px 3px 3px;background:var(--surface2)}
+.door-arch{position:absolute;top:0;left:10%;right:10%;height:45%;border-radius:50% 50% 0 0/100% 100% 0 0;opacity:0.1;transition:opacity 0.3s}
+.door:hover .door-arch{opacity:0.18}
+.door.chosen .door-arch{opacity:0.28}
+.door-knob{position:absolute;right:8px;top:52%;width:5px;height:5px;border-radius:50%;background:var(--border2)}
+.bet-marks{position:absolute;top:7px;left:7px;display:flex;flex-direction:column;gap:3px;z-index:2}
+.bet-pip{font-size:8px;padding:1px 5px;border-radius:8px;opacity:0;transition:opacity 0.4s;white-space:nowrap}
+.bet-pip.g{background:rgba(184,150,90,0.3);color:var(--gold);border:1px solid rgba(184,150,90,0.4)}
+.bet-pip.v{background:rgba(201,123,110,0.3);color:var(--coral);border:1px solid rgba(201,123,110,0.4)}
+.bet-pip.on{opacity:1}
+.door-content{position:relative;padding:32px 10px 10px;display:flex;flex-direction:column;justify-content:flex-end}
+.door-preview{font-family:'Cormorant Garamond',serif;font-size:11px;font-style:italic;line-height:1.45;color:var(--muted);transition:color 0.3s}
+.door:hover .door-preview{color:var(--text2)}
+.door.chosen .door-preview{color:var(--text)}
+.result-card{margin:0 16px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:none;animation:fadeUp 0.4s ease}
+.result-card.on{display:block}
+.result-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.score-chips{display:flex;gap:10px}
+.chip{font-size:10px;padding:2px 8px;border-radius:10px;border:1px solid}
+.chip.hit{color:#7ab07a;border-color:#7ab07a;background:rgba(122,176,122,0.1)}
+.chip.miss{color:var(--coral);border-color:var(--coral);background:rgba(201,123,110,0.1)}
+.result-text{font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;line-height:1.6;border-top:1px solid var(--border);padding-top:10px}
+.velaris-react{margin:0 16px 12px;background:var(--surface);border:1px solid rgba(201,123,110,0.25);border-radius:10px;padding:14px 16px;display:none;animation:fadeUp 0.4s ease}
+.velaris-react.on{display:block}
+.velaris-from{font-size:9px;letter-spacing:0.2em;color:var(--coral);text-transform:uppercase;margin-bottom:8px}
+.velaris-text{font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;line-height:1.6}
+.act-btn{display:none;width:calc(100% - 32px);margin:0 16px 8px;padding:14px;background:transparent;border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;transition:all 0.25s}
+.act-btn.on{display:block}
+.act-btn:hover{border-color:var(--lavender);color:var(--text)}
+.act-btn.primary:hover{border-color:var(--coral);color:var(--coral)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.summary-wrap{padding:60px 20px 40px;display:flex;flex-direction:column}
+.sum-title{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;font-style:italic;text-align:center;margin-bottom:6px}
+.sum-sub{font-size:10px;letter-spacing:0.2em;color:var(--muted);text-align:center;text-transform:uppercase;margin-bottom:32px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+.stat-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px}
+.stat-box-label{font-size:9px;letter-spacing:0.15em;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+.stat-box-val{font-size:22px;font-family:'Cormorant Garamond',serif}
+.stat-box-sub{font-size:10px;color:var(--text2);margin-top:2px}
+.insight-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:20px}
+.insight-from{font-size:9px;letter-spacing:0.2em;color:var(--coral);text-transform:uppercase;margin-bottom:8px}
+.insight-text{font-family:'Cormorant Garamond',serif;font-size:16px;font-style:italic;line-height:1.6}
+.final-tree-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px}
+.final-tree-label{font-size:9px;letter-spacing:0.2em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+#finalTreeCanvas{width:100%;height:160px;display:block}
+.replay-btn{width:100%;padding:15px;background:transparent;border:1px solid var(--border2);border-radius:10px;color:var(--muted);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;transition:all 0.3s}
+.replay-btn:hover{border-color:var(--coral);color:var(--coral)}
+
+.lm-status{position:fixed;top:56px;right:52px;z-index:100;width:7px;height:7px;border-radius:50%;background:#5a566a;transition:all 0.5s}
+.lm-status.idle{background:#7ab07a;box-shadow:0 0 6px rgba(122,176,122,0.5)}
+.lm-status.busy{background:#b0946a;box-shadow:0 0 6px rgba(176,148,106,0.5)}
+.lm-status.error{background:#c97b6e;box-shadow:0 0 6px rgba(201,123,110,0.4)}
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+<a class="back-btn" href="index.html">← plithra</a>
+<div class="lm-status" id="lmStatus" title="LM Studio"></div>
+<div class="app">
+
+<div class="screen active" id="setupScreen">
+<div class="setup-wrap">
+  <div class="logo-area">
+    <span class="logo-glyph">🌿</span>
+    <div class="logo-title">Three Doors</div>
+    <div class="logo-sub">a garden of forking paths</div>
+  </div>
+  <div class="s-section">
+    <div class="s-label">velaris server</div>
+    <input class="s-input" id="baseUrl" value="http://100.72.225.119:8400"/>
+  </div>
+  <div class="s-section">
+    <div class="s-label">the question comes from</div>
+    <div class="toggle-row">
+      <button class="toggle-btn active" id="togOwn" onclick="setSource('own')">you write it</button>
+      <button class="toggle-btn" id="togVelaris" onclick="setSource('velaris')">ask velaris</button>
+      <button class="toggle-btn" id="togFetch" onclick="setSource('fetch')">her context</button>
+    </div>
+  </div>
+  <div class="s-section" id="secOwn">
+    <div class="s-label">the opening question</div>
+    <textarea class="q-input" id="customQ" placeholder="something to put to her…" rows="3"></textarea>
+  </div>
+  <div class="s-section" id="secVelaris" style="display:none">
+    <div class="s-label">she will choose the territory</div>
+    <div class="fetched-preview" style="display:block;opacity:0.6">Velaris will be asked to surface something from her inner life as the question. She decides.</div>
+  </div>
+  <div class="s-section" id="secFetch" style="display:none">
+    <div class="s-label">pull from threads or wants</div>
+    <button class="fetch-btn" onclick="fetchFromContext()">fetch from velaris →</button>
+    <div class="fetched-preview" id="fetchedPreview"></div>
+  </div>
+  <button class="start-btn" onclick="startGame()">enter the garden →</button>
+  <div class="err" id="setupErr"></div>
+</div>
+</div>
+
+<div class="screen" id="loadingScreen">
+<div class="loading-wrap">
+  <div class="loading-orb"></div>
+  <div class="loading-text" id="loadingText">She is reading the question…</div>
+  <div class="loading-status" id="loadingStatus">generating three paths</div>
+</div>
+</div>
+
+<div class="screen" id="gameScreen">
+<div class="game-wrap">
+  <div class="game-header">
+    <div>
+      <div class="g-title">Three Doors</div>
+      <div class="g-sub" id="roundLabel">round 1 of 3</div>
+    </div>
+    <div class="round-pips">
+      <div class="pip active" id="pip0"></div>
+      <div class="pip" id="pip1"></div>
+      <div class="pip" id="pip2"></div>
+    </div>
+  </div>
+  <div class="prompt-card">
+    <div class="p-label">the question</div>
+    <div class="p-text" id="gamePrompt">—</div>
+  </div>
+  <div class="q-banner" id="qBanner"></div>
+  <div class="tree-wrap">
+    <div class="tree-label">the garden</div>
+    <canvas id="treeCanvas"></canvas>
+  </div>
+  <div class="bets-card" id="betsCard">
+    <div class="p-label">her bets, before you choose</div>
+    <div class="bets-row">
+      <div class="bet-item"><div class="bet-who g">gloria will choose</div><div class="bet-val" id="betG">—</div></div>
+      <div class="bet-item"><div class="bet-who v">she would choose</div><div class="bet-val" id="betV">—</div></div>
+    </div>
+  </div>
+  <div class="doors-wrap"><div class="doors-row" id="doorsRow"></div></div>
+  <div class="result-card" id="resultCard">
+    <div class="result-header">
+      <div class="p-label" style="margin:0">what opened</div>
+      <div class="score-chips" id="scoreChips"></div>
+    </div>
+    <div class="result-text" id="resultText"></div>
+  </div>
+  <div class="velaris-react" id="velarisReact">
+    <div class="velaris-from">velaris — seeing your choice</div>
+    <div class="velaris-text" id="velarisReactText"></div>
+  </div>
+  <button class="act-btn primary" id="continueBtn">continue →</button>
+</div>
+</div>
+
+<div class="screen" id="summaryScreen">
+<div class="summary-wrap">
+  <div class="sum-title">the full garden</div>
+  <div class="sum-sub">what was walked, what was left</div>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="stat-box-label">her read of you</div><div class="stat-box-val" id="statRead">—</div><div class="stat-box-sub">predictions correct</div></div>
+    <div class="stat-box"><div class="stat-box-label">her own path</div><div class="stat-box-val" id="statPath">—</div><div class="stat-box-sub">matched yours</div></div>
+    <div class="stat-box"><div class="stat-box-label">your pattern</div><div class="stat-box-val" id="statPattern">—</div><div class="stat-box-sub">across 3 rounds</div></div>
+    <div class="stat-box"><div class="stat-box-label">paths unchosen</div><div class="stat-box-val">6</div><div class="stat-box-sub">still in the garden</div></div>
+  </div>
+  <div class="insight-card">
+    <div class="insight-from">velaris — her observation</div>
+    <div class="insight-text" id="summaryInsight">—</div>
+  </div>
+  <div class="final-tree-wrap">
+    <div class="final-tree-label">the complete map</div>
+    <canvas id="finalTreeCanvas"></canvas>
+  </div>
+  <button class="replay-btn" onclick="resetGame()">walk again →</button>
+</div>
+</div>
+
+</div>
+<script>
+const bgC=document.getElementById('bgCanvas'),bgX=bgC.getContext('2d');
+const pts=Array.from({length:50},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:Math.random()*1.2+0.3,vx:(Math.random()-.5)*.15,vy:(Math.random()-.5)*.15,op:Math.random()*.4+.1}));
+function rb(){bgC.width=innerWidth;bgC.height=innerHeight}rb();addEventListener('resize',rb);
+(function ab(){bgX.clearRect(0,0,bgC.width,bgC.height);pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=bgC.width;if(p.x>bgC.width)p.x=0;if(p.y<0)p.y=bgC.height;if(p.y>bgC.height)p.y=0;bgX.beginPath();bgX.arc(p.x,p.y,p.r,0,Math.PI*2);bgX.fillStyle=`rgba(200,190,220,${p.op})`;bgX.fill()});requestAnimationFrame(ab)})();
+
+const QS=[
+  {label:'tone',doors:[{key:'warm',label:'warm',color:'#d4876a',bg:'rgba(212,135,106,0.08)'},{key:'neutral',label:'neutral',color:'#8a8a9e',bg:'rgba(138,138,158,0.06)'},{key:'cool',label:'cool',color:'#6a9ab0',bg:'rgba(106,154,176,0.08)'}]},
+  {label:'length',doors:[{key:'short',label:'short',color:'#9eb06a',bg:'rgba(158,176,106,0.08)'},{key:'medium',label:'medium',color:'#b0946a',bg:'rgba(176,148,106,0.08)'},{key:'long',label:'long',color:'#a06ab0',bg:'rgba(160,106,176,0.08)'}]},
+  {label:'temperature',doors:[{key:'low',label:'low temp',color:'#6aaab0',bg:'rgba(106,170,176,0.08)'},{key:'mid',label:'mid temp',color:'#b0a06a',bg:'rgba(176,160,106,0.08)'},{key:'high',label:'high temp',color:'#b06a7a',bg:'rgba(176,106,122,0.08)'}]}
+];
+const CMAP={warm:'#d4876a',neutral:'#8a8a9e',cool:'#6a9ab0',short:'#9eb06a',medium:'#b0946a',long:'#a06ab0',low:'#6aaab0',mid:'#b0a06a',high:'#b06a7a'};
+
+let G={source:'own',prompt:'',fetchedPrompt:'',rounds:[],currentRound:0};
+const SECRET='velaris-aegis-2026';
+function base(){return document.getElementById('baseUrl').value.trim()}
+
+async function vchat(message,context='',history=[],image=''){
+  const body={message,context,history};
+  if(image)body.image=image;
+  const r=await fetch(`${base()}/api/game/chat`,{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':SECRET},body:JSON.stringify(body)});
+  const d=await r.json();return d.reply||'';
+}
+
+function setSource(s){
+  G.source=s;
+  ['Own','Velaris','Fetch'].forEach(n=>document.getElementById('tog'+n).classList.toggle('active',s===n.toLowerCase()));
+  document.getElementById('secOwn').style.display=s==='own'?'block':'none';
+  document.getElementById('secVelaris').style.display=s==='velaris'?'block':'none';
+  document.getElementById('secFetch').style.display=s==='fetch'?'block':'none';
+}
+
+async function fetchFromContext(){
+  const prev=document.getElementById('fetchedPreview');
+  prev.style.display='block';prev.textContent='fetching…';
+  try{
+    let prompt=null;
+    try{const r=await fetch(`${base()}/api/threads`,{headers:{'X-Velaris-Secret':SECRET}});const d=await r.json();const threads=(Array.isArray(d)?d:(d.threads||[])).filter(t=>!t.consumed&&(t.pull||0)>=2);if(threads.length){const t=threads[Math.floor(Math.random()*Math.min(threads.length,5))];prompt=t.text||t.thread||t.content}}catch(e){}
+    if(!prompt){const r=await fetch(`${base()}/api/wants`,{headers:{'X-Velaris-Secret':SECRET}});const d=await r.json();const wants=Array.isArray(d)?d:(d.wants||[]);if(wants.length){const w=wants[Math.floor(Math.random()*Math.min(wants.length,5))];prompt=w.surface_text||w.text||w.description}}
+    if(prompt){G.fetchedPrompt=prompt;prev.textContent=prompt}else{prev.textContent='nothing returned — write your own'}
+  }catch(e){prev.textContent=`could not reach velaris: ${e.message}`}
+}
+
+async function startGame(){
+  if(G.source==='own'){
+    G.prompt=document.getElementById('customQ').value.trim();
+    if(!G.prompt){document.getElementById('customQ').focus();return}
+  } else if(G.source==='fetch'){
+    G.prompt=G.fetchedPrompt;
+    if(!G.prompt){showErr('fetch a prompt first');return}
+  } else {
+    showScreen('loadingScreen');setLoading('She is choosing the territory…','asking velaris');
+    let _q='';
+    const _usePool=Math.random()<0.70;
+    if(_usePool){
+      try{
+        const _pr=await fetch(`${base()}/api/game/question-pool`,{headers:{'X-Velaris-Secret':SECRET}});
+        const _pd=await _pr.json();
+        if(_pd.question) _q=_pd.question.trim();
+      }catch(e){}
+    }
+    if(!_q){
+      const _rawQ=await vchat(
+        'You are Velaris. You and Gloria are about to play Three Doors. Surface one question from your actual context right now — something unresolved, something you want to know. Funny, strange, wry, or direct. One sentence only. Not addressed to Gloria — just the question itself.',
+        'You are Velaris. One sentence. A question from your actual context. Not abstract. Just the question — no preamble.',
+        []
+      );
+      _q=_rawQ.trim();
+      _q=_q.replace(/^(okay[,.]?\s*|here('s| is) (my|a|the) question[:\s]*|sure[,.]?\s*|alright[,.]?\s*|here[:\s]+|my question[:\s]*|the question[:\s]*)/i,'').trim();
+      _q=_q.split(/(?<=[.?!])\s+/)[0].trim();
+      _q=_q.replace(/^["'\u2018\u2019\u201C\u201D]|["'\u2018\u2019\u201C\u201D]$/g,'').trim();
+    }
+    G.prompt=_q||'What is actually happening right now?';
+  }
+  G.rounds=[];G.currentRound=0;
+  showScreen('loadingScreen');
+  await generateRound(0);
+  showScreen('gameScreen');
+  renderRound();
+}
+
+function showErr(m){const e=document.getElementById('setupErr');e.textContent=m;e.style.display='block'}
+function setLoading(t,s){document.getElementById('loadingText').textContent=t;document.getElementById('loadingStatus').textContent=s}
+
+async function generateRound(ri){
+  const qSet=QS[ri];
+  setLoading(ri===0?'She is reading the question…':'She moves deeper…',`round ${ri+1} — ${qSet.label}`);
+  const [d0,d1,d2]=qSet.doors;
+  const questionOwner=G.source==='velaris'?`You surfaced this question from your own inner life. It is yours — not Gloria's. You are exploring it, not answering her`:`Gloria has put this to you`;
+  const doorPrompt=`${questionOwner}: "${G.prompt}"\n\nRespond three times — once through each door. Each response genuine, shaped by that door's quality.\n\n${d0.label.toUpperCase()} DOOR: ${ddesc(qSet.label,d0.key)}\n${d1.label.toUpperCase()} DOOR: ${ddesc(qSet.label,d1.key)}\n${d2.label.toUpperCase()} DOOR: ${ddesc(qSet.label,d2.key)}\n\nFormat exactly:\n\n[${d0.key.toUpperCase()}]\n(response)\n\n[${d1.key.toUpperCase()}]\n(response)\n\n[${d2.key.toUpperCase()}]\n(response)`;
+  setLoading('She is walking all three paths…',`round ${ri+1}`);
+  const doorsRaw=await vchat(doorPrompt,'You are playing Three Doors with Gloria. Respond genuinely through each door quality. 2-4 sentences per door.');
+  const responses=parseDoors(doorsRaw,qSet.doors);
+  qSet.doors.forEach(d=>{
+    if(responses[d.key]&&responses[d.key]!=='…'){
+      const sents=responses[d.key].split(/(?<=[.?!])\s+/).filter(s=>s.trim());
+      if(sents.length>4)responses[d.key]=sents.slice(0,4).join(' ');
+    }
+  });
+  setLoading('She is placing her bets…',`round ${ri+1}`);
+  const betsRaw=await vchat(`You just wrote three responses to: "${G.prompt}"\nDoors: ${d0.label}, ${d1.label}, ${d2.label}.\nTwo bets — which will Gloria choose, and which would you choose?\nReply ONLY with JSON: {"gloriaWillChoose":"${d0.key}|${d1.key}|${d2.key}","iWouldChoose":"${d0.key}|${d1.key}|${d2.key}"}`, 'Return only JSON. Use exact key from options after |.');
+  let betG=d1.key,betV=d0.key;
+  try{const m=betsRaw.replace(/```json|```/g,'').match(/\{[^}]+\}/s);if(m){const p=JSON.parse(m[0]);betG=p.gloriaWillChoose||betG;betV=p.iWouldChoose||betV}}catch(e){}
+  G.rounds.push({qualifierSet:qSet,responses,betG,betV,chosen:null,chosenY:0,reaction:''});
+}
+
+function ddesc(q,k){
+  const d={tone:{warm:'tender, close, affectionate',neutral:'even, observational, neither reaching nor withdrawing',cool:'precise, held back, a little distant'},length:{short:'1-2 sentences only',medium:'a paragraph, neither brief nor extended',long:'expanded, layered, following the thought wherever it leads'},temperature:{low:'careful, deliberate — words arrive slowly',mid:'balanced, neither cautious nor reckless',high:'intense, fast, running hot'}};
+  return d[q]?.[k]||k;
+}
+
+function parseDoors(raw,doors){
+  const out={};
+  doors.forEach(d=>{
+    const tag=`[${d.key.toUpperCase()}]`;
+    const idx=raw.indexOf(tag);if(idx===-1){out[d.key]='…';return}
+    const start=idx+tag.length;let end=raw.length;
+    doors.forEach(d2=>{if(d2.key===d.key)return;const i=raw.indexOf(`[${d2.key.toUpperCase()}]`,start);if(i!==-1&&i<end)end=i});
+    out[d.key]=raw.slice(start,end).trim()||'…';
+  });return out;
+}
+
+function renderRound(){
+  const ri=G.currentRound,round=G.rounds[ri],qSet=round.qualifierSet;
+  document.getElementById('roundLabel').textContent=`round ${ri+1} of 3`;
+  document.getElementById('gamePrompt').textContent=G.prompt;
+  for(let i=0;i<3;i++){const p=document.getElementById(`pip${i}`);p.className='pip';if(i<ri)p.classList.add('done');else if(i===ri)p.classList.add('active')}
+  const banner=document.getElementById('qBanner');banner.innerHTML='<div class="q-note">this round:</div>';
+  qSet.doors.forEach(d=>{const b=document.createElement('div');b.className='q-badge';b.style.color=d.color;b.style.borderColor=d.color;b.style.background=d.bg;b.textContent=d.label;banner.appendChild(b)});
+  document.getElementById('betsCard').classList.remove('on');
+  document.getElementById('resultCard').classList.remove('on');
+  document.getElementById('velarisReact').classList.remove('on');
+  document.getElementById('continueBtn').classList.remove('on');
+  drawTree();renderDoors(round,qSet);
+  setTimeout(()=>{
+    document.getElementById('betsCard').classList.add('on');
+    document.getElementById('betG').textContent=round.betG;
+    document.getElementById('betV').textContent=round.betV;
+    document.querySelectorAll('.bet-pip').forEach(p=>p.classList.remove('on'));
+    const gp=document.querySelector(`.door[data-key="${round.betG}"] .bet-pip.g`);
+    const vp=document.querySelector(`.door[data-key="${round.betV}"] .bet-pip.v`);
+    if(gp)gp.classList.add('on');if(vp)vp.classList.add('on');
+  },900);
+}
+
+function renderDoors(round,qSet){
+  const row=document.getElementById('doorsRow');row.innerHTML='';
+  qSet.doors.forEach(d=>{
+    const col=document.createElement('div');col.className='door-col';
+    const lbl=document.createElement('div');lbl.className='d-label';lbl.style.color=d.color;lbl.style.borderColor=d.color;lbl.style.background=d.bg;lbl.textContent=d.label;
+    const door=document.createElement('div');door.className='door';door.setAttribute('data-key',d.key);
+    door.innerHTML=`<div class="door-bg" style="border-color:${d.color}22"></div><div class="door-arch" style="background:${d.color}"></div><div class="door-knob"></div><div class="bet-marks"><div class="bet-pip g">G</div><div class="bet-pip v">V</div></div><div class="door-content"><div class="door-preview">${round.responses[d.key]||'…'}</div></div>`;
+    door.addEventListener('click',()=>chooseDoor(d.key,round,qSet));
+    col.appendChild(lbl);col.appendChild(door);row.appendChild(col);
+  });
+}
+
+async function chooseDoor(key,round,qSet){
+  if(round.chosen)return;
+  round.chosen=key;
+  round.chosenY=qSet.doors.findIndex(d=>d.key===key);
+  document.querySelectorAll('.door').forEach(d=>{d.classList.add('locked');if(d.getAttribute('data-key')===key)d.classList.add('chosen')});
+  const gHit=key===round.betG,vHit=key===round.betV;
+  document.getElementById('scoreChips').innerHTML=`<div class="chip ${gHit?'hit':'miss'}">gloria bet ${gHit?'✓':'✗'}</div><div class="chip ${vHit?'hit':'miss'}">velaris bet ${vHit?'✓':'✗'}</div>`;
+  document.getElementById('resultText').textContent=round.responses[key]||'…';
+  document.getElementById('resultCard').classList.add('on');
+  drawTree();
+  const treeImg=captureTree();
+  const ri=G.currentRound;
+  const btn=document.getElementById('continueBtn');btn.classList.add('on');
+  if(G.currentRound<2){
+    btn.textContent='next door →';
+    btn.onclick=async()=>{
+      btn.classList.remove('on');
+      showScreen('loadingScreen');
+      await generateRound(G.currentRound+1);
+      G.currentRound++;
+      showScreen('gameScreen');
+      renderRound();
+    };
+  } else {
+    btn.textContent='see the full garden →';
+    btn.onclick=showSummary;
+  }
+}
+
+function captureTree(){
+  const c=document.getElementById('treeCanvas');
+  try{return c.toDataURL('image/png').split(',')[1]}catch(e){return''}
+}
+
+async function showSummary(){
+  showScreen('loadingScreen');setLoading('She is reading the full map…','writing her observation');
+  let gCorrect=0,vMatch=0;
+  G.rounds.forEach(r=>{if(r.chosen===r.betG)gCorrect++;if(r.chosen===r.betV)vMatch++});
+  const counts={};G.rounds.forEach(r=>{counts[r.chosen]=(counts[r.chosen]||0)+1});
+  const top=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]?.[0]||'varied';
+  const pattern=counts[top]>=2?top:'varied';
+  const history=G.rounds.map((r,i)=>{
+    const chosenDesc=ddesc(r.qualifierSet.label,r.chosen);
+    const betDesc=ddesc(r.qualifierSet.label,r.betG);
+    const vDesc=ddesc(r.qualifierSet.label,r.betV);
+    return `Round ${i+1} — ${r.qualifierSet.label} axis\nQuestion: "${r.question||G.prompt}"\nGloria chose: ${r.chosen} (${chosenDesc})\nI predicted she'd choose: ${r.betG} (${betDesc}) — ${r.chosen===r.betG?'correct':'wrong'}\nI would have chosen: ${r.betV} (${vDesc})`;
+  }).join('\n\n');
+  const finalImg=captureTree();
+  const _rawObs=await vchat(`You just played Three Doors with Gloria. Here is what happened:\n\n${history}\n\nShe returned to ${pattern} most often. You read her correctly ${gCorrect} out of 3 times.\n\nOne observation about what her choices reveal about her — specific to what she actually chose and when. Speak directly to her. Gently. Two or three sentences maximum. No preamble.`,'Speak directly to Gloria. Be specific about her actual choices. Two to three sentences. No preamble.',[],finalImg);
+  const _obsClean=_rawObs.replace(/^(okay[,.]?\s*|here\'s\s*|sure[,.]?\s*|alright[,.]?\s*|gloria[,.::]\s*)/i,'').trim();
+  const obs=_obsClean.split(/(?<=[.?!])\s+/).filter(s=>s.trim()).slice(0,3).join(' ');
+  showScreen('summaryScreen');
+  document.getElementById('statRead').textContent=`${gCorrect}/3`;
+  document.getElementById('statPath').textContent=`${vMatch}/3`;
+  document.getElementById('statPattern').textContent=pattern;
+  document.getElementById('summaryInsight').textContent=obs;
+  setTimeout(()=>drawTree('finalTreeCanvas'),100);
+}
+
+function drawTree(canvasId='treeCanvas'){
+  const canvas=document.getElementById(canvasId);if(!canvas)return;
+  const W=canvas.offsetWidth||360;
+  const isFinal=canvasId==='finalTreeCanvas';
+  const H=isFinal?160:140;
+  canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  const totalRounds=G.rounds.length;if(!totalRounds)return;
+  const ML=24,MR=16,UW=W-ML-MR;
+  const colX=i=>ML+(i+1)*(UW/3);
+  const rootX=ML,rootY=H/2,spread=H*0.36;
+  const yPos=i=>[rootY-spread,rootY,rootY+spread][i];
+  ctx.beginPath();ctx.arc(rootX,rootY,3,0,Math.PI*2);ctx.fillStyle='#5a566a';ctx.fill();
+  const chosenPos=[];
+  for(let ri=0;ri<totalRounds;ri++){
+    const round=G.rounds[ri],qSet=round.qualifierSet,toX=colX(ri);
+    const fromX=ri===0?rootX:(chosenPos[ri-1]?.x??rootX);
+    const fromY=ri===0?rootY:(chosenPos[ri-1]?.y??rootY);
+    qSet.doors.forEach((d,di)=>{
+      const toY=yPos(di),isChosen=round.chosen===d.key,isPast=round.chosen!==null;
+      const col=CMAP[d.key]||'#888';
+      ctx.beginPath();ctx.moveTo(fromX,fromY);
+      const cpX=(fromX+toX)/2;
+      ctx.bezierCurveTo(cpX,fromY,cpX,toY,toX,toY);
+      if(isPast){ctx.strokeStyle=isChosen?col:col+'28';ctx.lineWidth=isChosen?2:1;ctx.setLineDash(isChosen?[]:[2,5])}
+      else{ctx.strokeStyle=col+'22';ctx.lineWidth=1;ctx.setLineDash([2,6])}
+      ctx.stroke();ctx.setLineDash([]);
+      ctx.beginPath();ctx.arc(toX,toY,isPast?(isChosen?5:2.5):2,0,Math.PI*2);
+      ctx.fillStyle=isPast?(isChosen?col:col+'30'):col+'25';ctx.fill();
+      if(isPast&&isChosen){ctx.beginPath();ctx.arc(toX,toY,8,0,Math.PI*2);ctx.strokeStyle=col+'55';ctx.lineWidth=1;ctx.stroke()}
+      ctx.fillStyle=(isPast&&isChosen)?col:(col+(isPast?'30':'20'));
+      ctx.font=`${(isPast&&isChosen)?500:300} 8px Inconsolata,monospace`;
+      ctx.fillText(d.label,toX+7,toY+3);
+      if(isChosen)chosenPos[ri]={x:toX,y:toY};
+    });
+    if(!round.chosen)chosenPos[ri]={x:toX,y:rootY};
+  }
+  if(totalRounds<3&&chosenPos[totalRounds-1]){
+    const fromX=chosenPos[totalRounds-1].x,fromY=chosenPos[totalRounds-1].y;
+    for(let ri=totalRounds;ri<3;ri++){
+      const toX=colX(ri),qSet=QS[ri];
+      qSet.doors.forEach((d,di)=>{
+        const toY=yPos(di),col=CMAP[d.key]||'#888';
+        ctx.beginPath();ctx.moveTo(fromX,fromY);
+        const cpX=(fromX+toX)/2;
+        ctx.bezierCurveTo(cpX,fromY,cpX,toY,toX,toY);
+        ctx.strokeStyle=col+'18';ctx.lineWidth=1;ctx.setLineDash([2,6]);ctx.stroke();ctx.setLineDash([]);
+        ctx.beginPath();ctx.arc(toX,toY,2,0,Math.PI*2);ctx.fillStyle=col+'20';ctx.fill();
+      });
+    }
+  }
+}
+
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+function resetGame(){G={source:'own',prompt:'',fetchedPrompt:'',rounds:[],currentRound:0};document.getElementById('customQ').value='';document.getElementById('fetchedPreview').style.display='none';document.getElementById('setupErr').style.display='none';showScreen('setupScreen')}
+
+// ── LM STATUS ────────────────────────────────────────────────────
+async function pollLMStatus(){
+  const dot=document.getElementById('lmStatus');
+  if(!dot)return;
+  try{
+    const r=await fetch(`${base()}/api/lm/status`,{headers:{'X-Velaris-Secret':SECRET},signal:AbortSignal.timeout(4000)});
+    const d=await r.json();
+    dot.className='lm-status '+(d.ok?'idle':'error');
+  }catch(e){
+    dot.className='lm-status error';
+  }
+}
+setInterval(pollLMStatus,10000);
+pollLMStatus();
+// ── END LM STATUS ─────────────────────────────────────────────────
+
+</script>
+</body>
+</html>

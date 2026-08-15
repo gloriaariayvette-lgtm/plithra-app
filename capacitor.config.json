@@ -1,0 +1,10 @@
+{
+  "appId": "dev.velaris.plithra",
+  "appName": "Plithra",
+  "webDir": "src",
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true
+    }
+  }
+}

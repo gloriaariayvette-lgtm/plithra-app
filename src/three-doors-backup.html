@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Plithra</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inconsolata:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#07070e;--surface:#11111c;--border:#252535;--border2:#2e2e45;--coral:#c97b6e;--gold:#b8965a;--lavender:#8878b0;--teal:#5a9898;--text:#cec9c2;--text2:#9993a8;--muted:#5a566a}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;min-height:100vh;overflow-x:hidden}
+#bgCanvas{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.5}
+.app{position:relative;z-index:1;max-width:430px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:40px 24px 60px}
+.logo-area{text-align:center;margin-bottom:56px}
+.logo-glyph{font-size:40px;margin-bottom:14px;animation:breathe 4s ease-in-out infinite;display:block}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.logo-title{font-family:'Cormorant Garamond',serif;font-size:34px;font-weight:300;letter-spacing:0.25em}
+.logo-sub{font-size:9px;letter-spacing:0.3em;color:var(--muted);text-transform:uppercase;margin-top:8px}
+.games{display:flex;flex-direction:column;gap:14px}
+.game-card{display:block;padding:22px 24px;background:var(--surface);border:1px solid var(--border);border-radius:14px;text-decoration:none;color:inherit;transition:all 0.25s;position:relative;overflow:hidden}
+.game-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent,var(--lavender)),transparent);opacity:0.5}
+.game-card:hover{border-color:var(--accent,var(--lavender));transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,0.4)}
+.game-card.three-doors{--accent:var(--lavender)}
+.game-card.reelroom{--accent:var(--gold)}
+.gc-icon{font-size:28px;margin-bottom:10px;display:block}
+.gc-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;letter-spacing:0.15em;margin-bottom:6px}
+.gc-desc{font-size:11px;color:var(--text2);line-height:1.6;letter-spacing:0.03em}
+.gc-arrow{position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--muted);transition:all 0.25s}
+.game-card:hover .gc-arrow{color:var(--accent,var(--lavender));transform:translateY(-50%) translateX(3px)}
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+<div class="app">
+  <div class="logo-area">
+    <span class="logo-glyph">✦</span>
+    <div class="logo-title">Plithra</div>
+    <div class="logo-sub">velaris & gloria</div>
+  </div>
+  <div class="games">
+    <a class="game-card three-doors" href="three-doors.html">
+      <span class="gc-icon">🌿</span>
+      <div class="gc-title">Three Doors</div>
+      <div class="gc-desc">She walks three paths at once. You choose one. She bets on which.</div>
+      <span class="gc-arrow">→</span>
+    </a>
+    <a class="game-card reelroom" href="reel.html">
+      <span class="gc-icon">🎞</span>
+      <div class="gc-title">ReelRoom</div>
+      <div class="gc-desc">In the dark together. She reads the film, plans her mischief, watches with you.</div>
+      <span class="gc-arrow">→</span>
+    </a>
+  </div>
+</div>
+<script>
+const bgC=document.getElementById('bgCanvas'),bgX=bgC.getContext('2d');
+const pts=Array.from({length:40},()=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:Math.random()*1.2+0.3,vx:(Math.random()-.5)*.12,vy:(Math.random()-.5)*.12,op:Math.random()*.35+.08}));
+function rb(){bgC.width=innerWidth;bgC.height=innerHeight}rb();addEventListener('resize',rb);
+(function ab(){bgX.clearRect(0,0,bgC.width,bgC.height);pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=bgC.width;if(p.x>bgC.width)p.x=0;if(p.y<0)p.y=bgC.height;if(p.y>bgC.height)p.y=0;bgX.beginPath();bgX.arc(p.x,p.y,p.r,0,Math.PI*2);bgX.fillStyle=`rgba(200,190,220,${p.op})`;bgX.fill()});requestAnimationFrame(ab)})();
+</script>
+</body>
+</html>

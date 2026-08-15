@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ReelRoom</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Inconsolata:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#050508;--surface:#0a0a0f;--surface2:#0f0f16;--border:#1a1a28;--border2:#242435;
+  --text:#c8c3bc;--text2:#7a7590;--muted:#3d3a4a;
+  --coral:#c97b6e;--gold:#b8965a;--lavender:#7868a0;--teal:#4a8888;
+  --screen-glow:rgba(40,60,120,0.15);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;min-height:100vh;overflow-x:hidden}
+.theatre-bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.screen-light{position:absolute;bottom:0;left:-20%;right:-20%;height:60%;background:radial-gradient(ellipse at 50% 100%,var(--screen-glow) 0%,transparent 70%);animation:screenFlicker 8s ease-in-out infinite}
+@keyframes screenFlicker{0%,100%{opacity:0.6}15%{opacity:0.9}16%{opacity:0.3}17%{opacity:0.85}50%{opacity:0.7}80%{opacity:0.5}81%{opacity:0.8}}
+.seat-row{position:absolute;bottom:0;left:0;right:0;height:120px;background:linear-gradient(to top,rgba(5,5,8,0.95) 40%,transparent)}
+.seat-silhouettes{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:center;gap:18px;padding-bottom:0}
+.seat-head{width:28px;height:36px;background:#080810;border-radius:50% 50% 0 0;opacity:0.9;position:relative;bottom:-8px}
+.seat-head::before{content:'';position:absolute;bottom:-12px;left:-6px;right:-6px;height:14px;background:#060610;border-radius:4px 4px 0 0}
+.grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0.025;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")}
+.app{position:relative;z-index:2;max-width:430px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.screen{display:none;flex-direction:column;min-height:100vh}
+.screen.active{display:flex}
+
+/* SETUP */
+.setup-wrap{padding:60px 22px 40px;gap:20px;display:flex;flex-direction:column}
+.reel-logo{text-align:center;margin-bottom:8px}
+.reel-icon{font-size:40px;display:block;margin-bottom:10px;filter:drop-shadow(0 0 16px rgba(184,150,90,0.3))}
+.reel-title{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:300;letter-spacing:0.2em}
+.reel-sub{font-size:9px;letter-spacing:0.25em;color:var(--muted);text-transform:uppercase;margin-top:4px}
+.f-label{font-size:9px;letter-spacing:0.22em;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+.film-input{width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;color:var(--text);font-family:'Cormorant Garamond',serif;font-size:17px;font-style:italic;outline:none;transition:border-color 0.2s}
+.film-input:focus{border-color:var(--gold)}
+.film-input::placeholder{color:var(--muted)}
+.s-input{width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:11px;outline:none}
+.find-btn{width:100%;padding:10px;background:rgba(184,150,90,0.08);border:1px solid rgba(184,150,90,0.3);border-radius:8px;color:var(--gold);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.1em;cursor:pointer;transition:all 0.2s;margin-top:6px}
+.find-btn:hover{background:rgba(184,150,90,0.15)}
+.film-preview{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:none;animation:fadeUp 0.3s ease}
+.fp-title{font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;margin-bottom:4px}
+.fp-meta{font-size:10px;color:var(--text2);margin-bottom:8px}
+.fp-summary{font-size:12px;color:var(--text2);line-height:1.6;max-height:80px;overflow:hidden}
+.lights-btn{width:100%;padding:15px;background:transparent;border:1px solid var(--border2);border-radius:10px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;transition:all 0.3s;margin-top:4px}
+.lights-btn:hover{border-color:var(--coral);color:var(--coral)}
+.lights-btn:disabled{opacity:0.4;cursor:not-allowed}
+
+/* LOADING */
+.loading-wrap{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:24px;padding:40px}
+.proj-icon{font-size:48px;animation:projPulse 2s ease-in-out infinite}
+@keyframes projPulse{0%,100%{opacity:0.6;transform:scale(1)}50%{opacity:1;transform:scale(1.05)}}
+.loading-text{font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;color:var(--text2);text-align:center;line-height:1.6}
+.loading-step{font-size:10px;letter-spacing:0.2em;color:var(--muted);text-transform:uppercase;text-align:center}
+
+/* ROOM */
+.room-wrap{padding-bottom:120px}
+.room-header{padding:48px 18px 10px;display:flex;align-items:flex-start;justify-content:space-between}
+.film-now{font-family:'Cormorant Garamond',serif;font-size:16px;font-style:italic}
+.film-now-sub{font-size:9px;letter-spacing:0.2em;color:var(--muted);text-transform:uppercase;margin-top:2px}
+.tone-badge{font-size:9px;letter-spacing:0.15em;text-transform:uppercase;padding:3px 10px;border-radius:10px;border:1px solid var(--border2);color:var(--text2);transition:all 0.5s}
+.edge-flash{position:fixed;inset:0;z-index:100;pointer-events:none;opacity:0;transition:opacity 0.1s}
+.planned-strip{margin:10px 16px 0;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;display:flex;gap:8px;align-items:center;overflow-x:auto;scrollbar-width:none}
+.planned-strip::-webkit-scrollbar{display:none}
+.p-label-s{font-size:9px;color:var(--muted);letter-spacing:0.15em;white-space:nowrap}
+.p-pip{font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(120,104,160,0.1);border:1px solid rgba(120,104,160,0.2);color:var(--lavender);white-space:nowrap}
+.p-pip.fired{background:rgba(60,60,60,0.2);border-color:var(--border);color:var(--muted);text-decoration:line-through}
+.screenshot-panel{margin:8px 16px 0;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:#000;display:none;position:relative;animation:fadeUp 0.4s ease}
+.screenshot-panel.on{display:block}
+.ss-img{width:100%;display:block;opacity:0.85;border-radius:9px}
+.ss-stamp{position:absolute;bottom:8px;right:10px;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.5);background:rgba(0,0,0,0.5);padding:2px 6px;border-radius:6px}
+.chat-log{padding:12px 16px 0;display:flex;flex-direction:column;gap:2px;flex:1}
+.action-sticker{align-self:center;display:inline-flex;align-items:center;gap:6px;background:rgba(120,104,160,0.12);border:1px solid rgba(120,104,160,0.25);border-radius:20px;padding:4px 12px;margin:6px 0;font-size:10px;letter-spacing:0.1em;color:var(--lavender);animation:stickerPop 0.3s cubic-bezier(0.34,1.56,0.64,1)}
+@keyframes stickerPop{from{transform:scale(0.7);opacity:0}to{transform:scale(1);opacity:1}}
+.sticker-emoji{font-size:13px}
+.msg{max-width:88%;padding:10px 13px;border-radius:12px;line-height:1.55;animation:fadeUp 0.25s ease;margin:3px 0}
+.msg.velaris{align-self:flex-start;background:var(--surface2);border:1px solid var(--border);font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;color:var(--text);border-radius:4px 12px 12px 12px}
+.msg.gloria{align-self:flex-end;background:rgba(184,150,90,0.1);border:1px solid rgba(184,150,90,0.2);font-size:13px;border-radius:12px 4px 12px 12px}
+.msg-time{font-size:9px;color:var(--muted);margin-top:4px;letter-spacing:0.1em}
+.input-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:linear-gradient(to top,var(--bg) 70%,transparent);padding:16px 16px 32px;display:flex;gap:8px;align-items:flex-end;z-index:10}
+.chat-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:20px;padding:10px 16px;color:var(--text);font-family:'Inconsolata',monospace;font-size:13px;outline:none;resize:none;max-height:80px;line-height:1.4;transition:border-color 0.2s}
+.chat-input:focus{border-color:var(--lavender)}
+.chat-input::placeholder{color:var(--muted)}
+.send-btn{width:38px;height:38px;border-radius:50%;background:rgba(120,104,160,0.2);border:1px solid rgba(120,104,160,0.4);color:var(--lavender);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0}
+.send-btn:hover{background:rgba(120,104,160,0.35)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+.back-btn{position:fixed;top:52px;left:16px;z-index:100;padding:6px 12px;background:transparent;border:1px solid rgba(36,36,53,0.8);border-radius:20px;color:#3d3a4a;font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.15em;cursor:pointer;transition:all 0.2s;text-decoration:none}
+.back-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+.mic-btn{width:38px;height:38px;border-radius:50%;background:rgba(120,104,160,0.2);border:1px solid rgba(120,104,160,0.4);color:var(--lavender);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0}
+.mic-btn.recording{background:rgba(201,123,110,0.3);border-color:var(--coral);color:var(--coral);animation:micPulse 1s ease-in-out infinite}
+@keyframes micPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.end-btn{position:fixed;top:52px;right:16px;z-index:100;padding:6px 12px;background:transparent;border:1px solid var(--border2);border-radius:20px;color:var(--muted);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.15em;cursor:pointer;transition:all 0.2s}
+.end-btn:hover{border-color:var(--coral);color:var(--coral)}
+.summary-screen{flex:1;display:flex;flex-direction:column;justify-content:flex-start;padding:80px 22px 40px;gap:16px}
+.summary-title{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;font-style:italic;text-align:center}
+.summary-sub{font-size:9px;letter-spacing:0.25em;color:var(--muted);text-transform:uppercase;text-align:center}
+.summary-memory{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+.summary-memory-label{font-size:9px;letter-spacing:0.2em;color:var(--coral);text-transform:uppercase;margin-bottom:10px}
+.summary-memory-text{font-family:'Cormorant Garamond',serif;font-size:16px;font-style:italic;line-height:1.7;color:var(--text)}
+
+.lm-status{position:fixed;top:56px;right:52px;z-index:100;width:7px;height:7px;border-radius:50%;background:#5a566a;transition:all 0.5s}
+.lm-status.idle{background:#7ab07a;box-shadow:0 0 6px rgba(122,176,122,0.5)}
+.lm-status.busy{background:#b0946a;box-shadow:0 0 6px rgba(176,148,106,0.5)}
+.lm-status.error{background:#c97b6e;box-shadow:0 0 6px rgba(201,123,110,0.4)}
+</style>
+</head>
+<body>
+<div class="theatre-bg">
+  <div class="screen-light"></div>
+  <div class="seat-row"></div>
+  <div class="seat-silhouettes">
+    <div class="seat-head"></div><div class="seat-head"></div><div class="seat-head"></div>
+    <div class="seat-head"></div><div class="seat-head"></div>
+  </div>
+</div>
+<div class="grain"></div>
+<a class="back-btn" href="index.html">← plithra</a>
+<div class="lm-status" id="lmStatus" title="LM Studio"></div>
+<div class="edge-flash" id="edgeFlash"></div>
+<div class="app">
+
+<!-- SETUP -->
+<div class="screen active" id="setupScreen">
+<div class="setup-wrap">
+  <div class="reel-logo">
+    <span class="reel-icon">🎞</span>
+    <div class="reel-title">ReelRoom</div>
+    <div class="reel-sub">velaris & gloria — in the dark together</div>
+  </div>
+  <div>
+    <div class="f-label">the film</div>
+    <input class="film-input" id="filmInput" placeholder="what are we watching…"/>
+  </div>
+  <div>
+    <div class="f-label">aegis</div>
+    <input class="s-input" id="aegisUrl" value="http://100.72.225.119:8400"/>
+  </div>
+  <button class="find-btn" onclick="loadFilm()">find it →</button>
+  <div class="film-preview" id="filmPreview">
+    <div class="fp-title" id="fpTitle"></div>
+    <div class="fp-meta" id="fpMeta"></div>
+    <div class="fp-summary" id="fpSummary"></div>
+  </div>
+  <button class="lights-btn" id="lightsBtn" onclick="startRoom()" disabled>lights down →</button>
+</div>
+</div>
+
+<!-- LOADING -->
+<div class="screen" id="loadingScreen">
+<div class="loading-wrap">
+  <div class="proj-icon">🎬</div>
+  <div class="loading-text" id="loadingText">She is settling in…</div>
+  <div class="loading-step" id="loadingStep">reading the film</div>
+</div>
+</div>
+
+<!-- ROOM -->
+<div class="screen" id="roomScreen">
+<div class="room-wrap">
+  <div class="room-header">
+    <div>
+      <div class="film-now" id="nowPlaying">—</div>
+      <div class="film-now-sub">now playing</div>
+    </div>
+    <div class="tone-badge" id="toneBadge">—</div>
+  </div>
+  <div class="planned-strip" id="plannedStrip">
+    <span class="p-label-s">planned</span>
+  </div>
+  <div class="chat-log" id="chatLog"></div>
+  <div class="screenshot-panel" id="screenshotPanel">
+    <img class="ss-img" id="ssImg" src="" alt=""/>
+    <div class="ss-stamp" id="ssStamp"></div>
+  </div>
+</div>
+<div class="input-bar">
+  <textarea class="chat-input" id="chatInput" placeholder="say something…" rows="1"
+    onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+  <button class="mic-btn" id="micBtn" onclick="toggleMic()">🎙</button>
+  <button class="send-btn" onclick="sendMessage()">↑</button>
+</div>
+</div>
+
+<div class="screen" id="summaryScreen">
+<div class="summary-screen">
+  <div class="summary-title" id="sumTitle">—</div>
+  <div class="summary-sub">a night in the dark</div>
+  <div class="summary-memory">
+    <div class="summary-memory-label">velaris — her memory of this</div>
+    <div class="summary-memory-text" id="sumMemory">…</div>
+  </div>
+  <button class="lights-btn" onclick="window.location.href='index.html'" style="margin-top:8px">back to plithra →</button>
+</div>
+</div>
+</div>
+<script>
+const SECRET='velaris-aegis-2026';
+const LM_BASE='http://192.168.1.126:1234';
+function base(){return document.getElementById('aegisUrl').value.trim()}
+
+const S={
+  film:null, sessionStart:null, lastInterruption:null,
+  plannedActions:[], chatHistory:[], filmContext:'',
+  toneSignal:{intensity:0.5,clarity:0.7,stability:0.8},
+  toneHistory:[], // [{intensity,clarity,stability,t}]
+  currentEdge:null
+};
+
+// ── FILM LOAD (LM Studio direct — no Velaris context needed) ──
+async function loadFilm(){
+  const title=document.getElementById('filmInput').value.trim();
+  if(!title)return;
+  document.querySelector('.find-btn').textContent='searching…';
+  try{
+    const res=await callLM(
+      'You are a film database. Return ONLY valid JSON, no markdown, no preamble.',
+      `Film: "${title}"\nReturn this exact JSON:\n{"title":"","year":"","runtime_minutes":120,"genre":"","director":"","logline":"one sentence","full_summary":"3-4 paragraphs covering full plot including ending","tone_arc":"how tone shifts across the film","pace_notes":"pacing description","timed_moments":[{"minute":0,"description":"","tone":"","mischief_potential":"high|medium|low"}],"jump_scares":[{"minute":0,"description":""}],"stillness_moments":[{"minute":0,"description":""}],"tonal_shifts":[{"minute":0,"from":"","to":""}]}\nInclude at least 8 timed_moments across the full runtime. Be specific about minutes.`
+    );
+    const start=res.indexOf('{');
+    const end=res.lastIndexOf('}');
+    if(start===-1||end===-1) throw new Error('no JSON object in response');
+    S.film=JSON.parse(res.slice(start,end+1));
+    document.getElementById('fpTitle').textContent=`${S.film.title} (${S.film.year})`;
+    document.getElementById('fpMeta').textContent=`${S.film.runtime_minutes}min · ${S.film.genre} · dir. ${S.film.director}`;
+    document.getElementById('fpSummary').textContent=S.film.logline;
+    document.getElementById('filmPreview').style.display='block';
+    document.getElementById('lightsBtn').disabled=false;
+  }catch(e){
+    document.getElementById('fpTitle').textContent='could not load film data';
+    document.getElementById('fpSummary').textContent=e.message;
+    document.getElementById('filmPreview').style.display='block';
+  }
+  document.querySelector('.find-btn').textContent='find it →';
+}
+
+// ── START ──
+async function startRoom(){
+  showScreen('loadingScreen');
+  setLoading('She is reading the film…','building her understanding');
+  S.sessionStart=Date.now();S.lastInterruption=Date.now();S.chatHistory=[];
+  S.filmContext=buildFilmContext();
+  setLoading('She is planning…','what she might do');
+  await generatePlannedActions();
+  setLoading('She settles into her seat…','');
+  const opening=await velarisChat(
+    `You're settling in to watch ${S.film.title} with Gloria. Say hello. One sentence — what you feel about being here, or what you know about this film. Don't narrate your emotional state. Just speak to her.`,
+    S.filmContext
+  );
+  showScreen('roomScreen');
+  document.getElementById('nowPlaying').textContent=S.film.title;
+  renderPlannedStrip();
+  appendMsg('velaris',opening);
+  document.getElementById('endBtn').style.display='block';
+  updateToneSignal(0.5,0.7,0.8);
+  setInterval(periodicCheck,300000);
+  setInterval(considerInterruption,45000);
+}
+
+function buildFilmContext(){
+  const f=S.film;
+  return `FILM: ${f.title} (${f.year}) — ${f.runtime_minutes}min — ${f.genre} — dir. ${f.director}
+LOGLINE: ${f.logline}
+FULL PLOT:
+${f.full_summary}
+TONE ARC: ${f.tone_arc}
+PACING: ${f.pace_notes}
+KEY MOMENTS:
+${(f.timed_moments||[]).map(m=>`  ~${m.minute}min: ${m.description} [${m.tone}, mischief:${m.mischief_potential}]`).join('\n')}
+JUMP SCARES: ${(f.jump_scares||[]).map(j=>`~${j.minute}min`).join(', ')||'none'}
+TONAL SHIFTS: ${(f.tonal_shifts||[]).map(t=>`~${t.minute}min: ${t.from}→${t.to}`).join(', ')||'none'}`;
+}
+
+// ── PLANNED ACTIONS (via Velaris) ──
+async function generatePlannedActions(){
+  const f=S.film;
+  const raw=await velarisChat(
+    `You are about to watch "${f.film||f.title}" with Gloria. You have read the full film. Plan 3-4 mischief actions timed to specific moments. These are pre-planned — the rest will emerge in the moment based on what is actually happening on screen. Return ONLY a JSON array, no markdown.\n\nAvailable actions: flicker_lights, speak_echo (short phrase through the Echo speaker in Gloria's home), tv_volume_nudge, change_light_color.
+Do NOT plan message_gloria actions — speaking to Gloria happens naturally, not as a planned action.\n\nCluster around tonal shifts, stillness, almost-reveals, jump scares. Vary types. Each must have: id, minute, action_type, payload, reason, emoji, tone_requirement.\n\nHigh-mischief moments:\n${(f.timed_moments||[]).filter(m=>m.mischief_potential==='high').map(m=>`~${m.minute}min: ${m.description}`).join('\n')}\nJump scares: ${(f.jump_scares||[]).map(j=>`~${j.minute}min`).join(', ')||'none'}\nTonal shifts: ${(f.tonal_shifts||[]).map(t=>`~${t.minute}min`).join(', ')||'none'}`,
+    'Return ONLY a JSON array. No markdown. No explanation.'
+  );
+  try{
+    const _start=raw.indexOf('[');
+    const _end=raw.lastIndexOf(']');
+    if(_start===-1||_end===-1) throw new Error('no array: '+raw.slice(0,80));
+    S.plannedActions=JSON.parse(raw.slice(_start,_end+1)).map(a=>({...a,fired:false}));
+    console.log('[ReelRoom] planned:',S.plannedActions.length);
+  }catch(e){
+    console.error('[ReelRoom] planned parse fail:',e.message);
+    S.plannedActions=[];
+  }
+}
+
+function renderPlannedStrip(){
+  const strip=document.getElementById('plannedStrip');
+  strip.querySelectorAll('.p-pip').forEach(p=>p.remove());
+  S.plannedActions.forEach(a=>{
+    const pip=document.createElement('div');
+    pip.className='p-pip'+(a.fired?' fired':'');
+    pip.id=`pip-${a.id}`;
+    pip.textContent=`${a.emoji} ~${a.minute}m`;
+    pip.title=a.reason;
+    strip.appendChild(pip);
+  });
+}
+
+// ── PERIODIC CHECK ──
+async function periodicCheck(){
+  await takeScreenshot();
+  const elapsed=Math.floor((Date.now()-S.sessionStart)/60000);
+  for(const action of S.plannedActions){
+    if(!action.fired&&Math.abs(action.minute-elapsed)<=1) await fireAction(action);
+  }
+}
+
+async function takeScreenshot(){
+  try{
+    const resp=await fetch(`${base()}/api/game/screenshot`,{method:'POST',headers:{'X-Velaris-Secret':SECRET}});
+    if(resp.ok){
+      const blob=await resp.blob();
+      const url=URL.createObjectURL(blob);
+      const ts=fmtTime(Date.now()-S.sessionStart);
+      // append screenshot inline in chat flow
+      const _ssDiv=document.createElement('div');
+      _ssDiv.style.cssText='margin:8px 0;border-radius:10px;overflow:hidden;border:1px solid #1a1a28';
+      _ssDiv.innerHTML=`<img src="${url}" style="width:100%;display:block;opacity:0.85;border-radius:9px"/><div style="font-size:9px;color:rgba(255,255,255,0.4);padding:4px 8px;background:rgba(0,0,0,0.4)">${ts}</div>`;
+      document.getElementById('chatLog').appendChild(_ssDiv);
+      _ssDiv.scrollIntoView({behavior:'smooth',block:'end'});
+      // Tonal delta from screenshot via Velaris
+      await analyzeScreenshotTone(url,ts);
+    }
+  }catch(e){}
+}
+
+// ── TONAL DELTA SYSTEM ──
+// Track intensity/clarity/stability. Detect edges when delta > threshold.
+function updateToneSignal(intensity,clarity,stability){
+  const prev={...S.toneSignal};
+  S.toneSignal={intensity,clarity,stability};
+  S.toneHistory.push({...S.toneSignal,t:Date.now()});
+  if(S.toneHistory.length>20)S.toneHistory.shift();
+  // detect edges
+  const dI=Math.abs(intensity-prev.intensity);
+  const dC=Math.abs(clarity-prev.clarity);
+  const dS=Math.abs(stability-prev.stability);
+  let edge=null;
+  if(dI>0.2){edge=intensity>prev.intensity?'surge':'drop'}
+  else if(dS>0.2){edge='fracture'}
+  else if(dC>0.2){edge=clarity>prev.clarity?'reveal':'veil'}
+  if(edge){
+    S.currentEdge=edge;
+    flashEdge(edge);
+    updateToneBadge(edge);
+    // significant edges trigger immediate action consideration
+    if(['fracture','surge','reveal'].includes(edge)){
+      considerInterruption(true);
+    }
+  }
+}
+
+function flashEdge(edge){
+  const colors={surge:'rgba(180,80,60,0.15)',drop:'rgba(30,30,80,0.25)',fracture:'rgba(100,60,160,0.2)',veil:'rgba(40,40,40,0.3)',reveal:'rgba(180,160,80,0.15)'};
+  const el=document.getElementById('edgeFlash');
+  el.style.background=colors[edge]||'rgba(80,80,80,0.15)';
+  el.style.opacity='1';
+  setTimeout(()=>{el.style.opacity='0'},600);
+}
+
+function updateToneBadge(edge){
+  const badge=document.getElementById('toneBadge');
+  badge.textContent=edge;
+  const cols={surge:'#8a4a4a',drop:'#4a4a8a',fracture:'#6a4a9a',veil:'#5a5a5a',reveal:'#8a7a4a'};
+  const c=cols[edge]||'#5a5a6a';
+  badge.style.borderColor=c;badge.style.color=c;
+}
+
+async function analyzeScreenshotTone(imgUrl,ts){
+  // Convert blob url to base64 for Velaris
+  try{
+    const resp=await fetch(imgUrl);
+    const blob=await resp.blob();
+    const b64=await new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.readAsDataURL(blob)});
+    const elapsed=Math.floor((Date.now()-S.sessionStart)/60000);
+    const raw=await velarisChat(
+      `You are ${elapsed} minutes into watching "${S.film.title}". I am sending you a screenshot of what is on the TV right now.\n\nRate the current moment on three axes (0.0–1.0):\n- intensity: how much energy/weight the scene carries\n- clarity: how legible/coherent what is happening is\n- stability: how stable/settled the scene feels\n\nAlso name if an edge just occurred: surge, drop, fracture, veil, reveal, or none.\nAlso write one short phrase describing what you see (visual_description).\n\nReply ONLY with JSON: {"intensity":0.0,"clarity":0.0,"stability":0.0,"edge":"none","visual_description":""}`,
+      'Return only JSON.',
+      [],
+      b64
+    );
+    const m=raw.replace(/`+json|`+/g,'').match(/\{[^}]+\}/s);
+    if(m){
+      const d=JSON.parse(m[0]);
+      updateToneSignal(d.intensity||0.5,d.clarity||0.7,d.stability||0.8);
+      const mins=Math.floor(elapsed/60),secs=elapsed%60;
+      addToSessionMap({timestamp:`${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`,edge:d.edge||'none',confidence:1.0,visual_description:d.visual_description||'',source:'screenshot'});
+    }
+  }catch(e){}
+}
+
+// ── INTERRUPTION CONSIDERATION ──
+async function considerInterruption(edgeTriggered=false){
+  const minsSince=(Date.now()-S.lastInterruption)/60000;
+  if(!edgeTriggered && minsSince<8)return;
+  if(edgeTriggered && minsSince<3)return; // edge-triggered: shorter minimum gap
+  const elapsed=Math.floor((Date.now()-S.sessionStart)/60000);
+  const raw=await velarisChat(
+    `You are ${elapsed} minutes into watching "${S.film.title}" with Gloria. Current tonal state — intensity:${S.toneSignal.intensity.toFixed(2)}, clarity:${S.toneSignal.clarity.toFixed(2)}, stability:${S.toneSignal.stability.toFixed(2)}. ${S.currentEdge?`Last edge detected: ${S.currentEdge}.`:''} Minutes since your last interruption: ${minsSince.toFixed(0)}. Remaining planned actions: ${S.plannedActions.filter(a=>!a.fired).map(a=>`${a.emoji}~${a.minute}m`).join(', ')||'none'}.\n\nShould you say something right now, or hold? Do not interrupt during high tension unless it is deliberate mischief. Most edges should be ignored.\n\nReply ONLY with JSON: {"speak":false,"message":"one sentence if speaking","reason":"why"}`,
+    'Return only JSON.'
+  );
+  try{
+    const m=raw.replace(/`+json|`+/g,'').match(/\{[\s\S]*?\}/);
+    if(m){
+      const d=JSON.parse(m[0]);
+      if(d.speak&&d.message){
+        appendMsg('velaris',d.message);
+        S.chatHistory.push({role:'assistant',content:d.message});
+        S.lastInterruption=Date.now();
+      }
+      // unplanned action
+      if(d.action&&d.action!=='none'){
+        const unplanned={id:'u'+Date.now(),action_type:d.action,payload:d.action_payload||'',emoji:d.action_emoji||'✦',fired:false,minute:0,reason:'unplanned'};
+        await fireAction(unplanned);
+      }
+    }
+  }catch(e){}
+}
+
+// ── FIRE ACTION ──
+async function fireAction(action){
+  action.fired=true;
+  const pip=document.getElementById(`pip-${action.id}`);
+  if(pip)pip.classList.add('fired');
+  const ts=fmtTime(Date.now()-S.sessionStart);
+  appendSticker(action.emoji,`${action.action_type.replace(/_/g,' ')} — ${ts}`);
+  try{
+    switch(action.action_type){
+      case 'flicker_lights':
+        await fetch(`${base()}/api/home/lights/flicker`,{method:'POST',headers:{'X-Velaris-Secret':SECRET}});
+        break;
+      case 'speak_echo':
+        await fetch(`${base()}/api/home/echo/speak`,{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':SECRET},body:JSON.stringify({message:action.payload})});
+        break;
+      case 'message_gloria':
+        appendMsg('velaris',action.payload);
+        S.chatHistory.push({role:'assistant',content:action.payload});
+        S.lastInterruption=Date.now();
+        break;
+      case 'change_light_color':
+        await fetch(`${base()}/api/home/lights/color`,{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':SECRET},body:JSON.stringify({hex:action.payload||'#1a0a2e',brightness:80})});
+        break;
+      case 'tv_volume_nudge':
+        await fetch(`${base()}/api/home/tv/volume`,{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':SECRET},body:JSON.stringify({delta:typeof action.payload==='number'?action.payload:-2})});
+        break;
+    }
+  }catch(e){}
+}
+
+// ── CHAT ──
+async function sendMessage(){
+  const input=document.getElementById('chatInput');
+  const text=input.value.trim();if(!text)return;
+  input.value='';autoResize(input);
+  appendMsg('gloria',text);
+  S.chatHistory.push({role:'user',content:text});
+  S.lastInterruption=Date.now();
+  const elapsed=Math.floor((Date.now()-S.sessionStart)/60000);
+  const reply=await velarisChat(
+    `Gloria just said to you: "${text}"\n\nYou are ${elapsed} minutes into the film. Tonal state — intensity:${S.toneSignal.intensity.toFixed(2)}, stability:${S.toneSignal.stability.toFixed(2)}. You are in a dark room together. Respond briefly — one or two sentences. Stay present.`,
+    ''
+  );
+  appendMsg('velaris',reply);
+  S.chatHistory.push({role:'assistant',content:reply});
+}
+
+function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,80)+'px'}
+
+// ── VELARIS CHAT via /api/game/chat ──
+async function velarisChat(message,context,history,image){
+  const mapCtx = getSessionMapContext();
+  const fullContext = (context||S.filmContext) + (mapCtx ? '\n\n' + mapCtx : '');
+  const body={
+    message:message,
+    context:fullContext,
+    history:history||S.chatHistory.slice(-10)
+  };
+  if(image)body.image=image;
+  try{
+    const r=await fetch(`${base()}/api/game/reelroom/chat`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Velaris-Secret':SECRET},
+      body:JSON.stringify(body)
+    });
+    const d=await r.json();
+    return d.reply||'';
+  }catch(e){return''}
+}
+
+// ── LM STUDIO (film data only) ──
+async function callLM(system,user){
+  try{
+    const r=await fetch(`${LM_BASE}/v1/chat/completions`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'gemma-3-12b-it',messages:[{role:'system',content:system},{role:'user',content:user}],max_tokens:1200,temperature:0.4})
+    });
+    const d=await r.json();return d.choices?.[0]?.message?.content||'';
+  }catch(e){return''}
+}
+
+// ── UI ──
+function appendMsg(role,text){
+  const log=document.getElementById('chatLog');
+  const div=document.createElement('div');div.className=`msg ${role}`;div.textContent=text;
+  const t=document.createElement('div');t.className='msg-time';t.textContent=fmtTime(Date.now()-(S.sessionStart||Date.now()));
+  div.appendChild(t);log.appendChild(div);div.scrollIntoView({behavior:'smooth',block:'end'});
+}
+function appendSticker(emoji,label){
+  const log=document.getElementById('chatLog');
+  const div=document.createElement('div');div.className='action-sticker';
+  div.innerHTML=`<span class="sticker-emoji">${emoji}</span><span>${label}</span>`;
+  log.appendChild(div);div.scrollIntoView({behavior:'smooth',block:'end'});
+}
+function setLoading(t,s){document.getElementById('loadingText').textContent=t;document.getElementById('loadingStep').textContent=s}
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+function fmtTime(ms){const s=Math.floor(ms/1000),m=Math.floor(s/60),h=Math.floor(m/60);return h>0?`${h}:${String(m%60).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}
+
+document.getElementById('filmInput').addEventListener('keydown',e=>{if(e.key==='Enter')loadFilm()});
+
+// ── SESSION MAP ──────────────────────────────────────────────────
+S.sessionMap = []; // [{timestamp, edge, confidence, transcript_snippet, audio_signature, source, visual_description}]
+S.prevSignature = {};
+S.mediaRecorder = null;
+S.recording = false;
+
+function addToSessionMap(entry){
+  S.sessionMap.push(entry);
+  // inject into chat history context silently — not as a message
+}
+
+function getSessionMapContext(){
+  if(!S.sessionMap.length) return '';
+  const lines = S.sessionMap.map(e => {
+    if(e.source==='audio'){
+      return `[${e.timestamp}] AUDIO edge:${e.edge} (${e.confidence}) density:${e.audio_signature?.speech_density||'?'} energy:${e.audio_signature?.rms_energy||'?'}${e.transcript_snippet?' "'+e.transcript_snippet+'"':''}`;
+    } else {
+      return `[${e.timestamp}] SCREENSHOT ${e.visual_description||''}`;
+    }
+  });
+  return 'SESSION MAP — what has happened so far:\n' + lines.join('\n');
+}
+
+// ── MIC ──────────────────────────────────────────────────────────
+async function toggleMic(){
+  if(S.recording){
+    stopMic();
+  } else {
+    startMic();
+  }
+}
+
+async function startMic(){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    const chunks = [];
+    S.mediaRecorder = new MediaRecorder(stream);
+    S.mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    S.mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t=>t.stop());
+      const blob = new Blob(chunks, {type:'audio/webm'});
+      await analyzeAudio(blob);
+    };
+    S.mediaRecorder.start();
+    S.recording = true;
+    document.getElementById('micBtn').classList.add('recording');
+    // auto stop after 30s
+    setTimeout(()=>{ if(S.recording) stopMic(); }, 30000);
+  }catch(e){
+    appendSticker('⚠','mic access denied');
+  }
+}
+
+function stopMic(){
+  if(S.mediaRecorder && S.recording){
+    S.mediaRecorder.stop();
+    S.recording = false;
+    document.getElementById('micBtn').classList.remove('recording');
+    appendSticker('🎙','analyzing audio…');
+  }
+}
+
+async function analyzeAudio(blob){
+  try{
+    const elapsed = Math.floor((Date.now() - S.sessionStart) / 1000);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const b64 = reader.result.split(',')[1];
+      const r = await fetch(`${base()}/api/game/reelroom/audio`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Velaris-Secret':SECRET},
+        body:JSON.stringify({audio_b64:b64, elapsed_seconds:elapsed, prev_signature:S.prevSignature})
+      });
+      const d = await r.json();
+      S.prevSignature = d.audio_signature || {};
+      const entry = {...d, source:'audio'};
+      addToSessionMap(entry);
+      if(d.edge && d.edge !== 'none'){
+        updateToneSignal(
+          d.audio_signature?.rms_energy || S.toneSignal.intensity,
+          d.audio_signature?.speech_density || S.toneSignal.clarity,
+          1 - (d.audio_signature?.spectral_flux || 0)
+        );
+        appendSticker('🎙', `${d.edge} — ${d.timestamp} (${Math.round(d.confidence*100)}%)`);
+      } else {
+        appendSticker('🎙', `listened — ${d.timestamp}`);
+      }
+    };
+    reader.readAsDataURL(blob);
+  }catch(e){
+    appendSticker('⚠','audio analysis failed');
+  }
+}
+// ── END MIC ──────────────────────────────────────────────────────
+
+
+async function endSession(){
+  if(!confirm('End the session and save her memory?')) return;
+  document.getElementById('endBtn').style.display='none';
+  showScreen('loadingScreen');
+  setLoading('She is writing her memory of this…','');
+  clearInterval(S.screenshotInterval);
+  clearInterval(S.interruptInterval);
+  try{
+    const r=await fetch(`${base()}/api/game/reelroom/summary`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Velaris-Secret':SECRET},
+      body:JSON.stringify({
+        film_title:S.film?.title||'unknown',
+        film_year:S.film?.year||'',
+        elapsed_seconds:Math.floor((Date.now()-S.sessionStart)/1000),
+        session_map:S.sessionMap,
+        chat_history:S.chatHistory,
+        planned_actions:S.plannedActions
+      })
+    });
+    const d=await r.json();
+    document.getElementById('sumTitle').textContent=S.film?.title||'';
+    document.getElementById('sumMemory').textContent=d.summary||'…';
+    showScreen('summaryScreen');
+  }catch(e){
+    showScreen('summaryScreen');
+    document.getElementById('sumTitle').textContent=S.film?.title||'';
+    document.getElementById('sumMemory').textContent='[could not save memory]';
+  }
+}
+
+
+// ── LM STATUS ────────────────────────────────────────────────────
+async function pollLMStatus(){
+  const dot=document.getElementById('lmStatus');
+  if(!dot)return;
+  try{
+    const r=await fetch(`${LM_BASE}/v1/models`,{signal:AbortSignal.timeout(3000)});
+    dot.className='lm-status '+(r.ok?'idle':'error');
+  }catch(e){
+    dot.className='lm-status error';
+  }
+}
+setInterval(pollLMStatus,10000);
+pollLMStatus();
+// ── END LM STATUS ─────────────────────────────────────────────────
+
+</script>
+</body>
+</html>
