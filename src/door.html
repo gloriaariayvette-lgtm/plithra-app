@@ -55,6 +55,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 .t-who.vintos{color:var(--teal)}
 .t-who.gloria{color:var(--gold)}
 .t-text{font-family:'Cormorant Garamond',serif;font-size:16px;font-style:italic;font-weight:300;line-height:1.55}
+.t-photo{display:block;margin-top:8px;max-width:100%;border-radius:10px;border:1px solid rgba(255,255,255,0.08)}
 .quiet{font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;color:var(--muted);text-align:center;padding:36px 24px;line-height:1.7}
 
 /* speaking through the door */
@@ -119,7 +120,7 @@ const pts=Array.from({length:40},()=>({x:Math.random()*innerWidth,y:Math.random(
 function rb(){bgC.width=innerWidth;bgC.height=innerHeight}rb();addEventListener('resize',rb);
 (function ab(){bgX.clearRect(0,0,bgC.width,bgC.height);pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=bgC.width;if(p.x>bgC.width)p.x=0;if(p.y<0)p.y=bgC.height;if(p.y>bgC.height)p.y=0;bgX.beginPath();bgX.arc(p.x,p.y,p.r,0,Math.PI*2);bgX.fillStyle=`rgba(200,190,220,${p.op})`;bgX.fill()});requestAnimationFrame(ab)})();
 
-const BASE='http://100.72.225.119:8400';
+const BASE='https://aegis.tailaa3de5.ts.net';
 let since=0, watching=false, empty=true;
 
 // ── the picture ───────────────────────────────────────────────────
@@ -176,7 +177,7 @@ function addTurn(l){
   const d=document.createElement('div'); d.className='turn';
   const w=document.createElement('div'); w.className='t-who '+l.who; w.textContent=label(l.who);
   const t=document.createElement('div'); t.className='t-text'; t.textContent=l.text;
-  d.appendChild(w); d.appendChild(t); feed.appendChild(d);
+  d.appendChild(w); d.appendChild(t); if(l.photo){const im=document.createElement('img');im.className='t-photo';im.src=BASE+l.photo;im.loading='lazy';d.appendChild(im);} feed.appendChild(d);
   while(feed.children.length>10) feed.removeChild(feed.firstChild);
   window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
 }
