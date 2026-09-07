@@ -46,6 +46,11 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 .lights-btn{width:100%;padding:15px;background:transparent;border:1px solid var(--border2);border-radius:10px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;transition:all 0.3s;margin-top:4px}
 .lights-btn:hover{border-color:var(--coral);color:var(--coral)}
 .lights-btn:disabled{opacity:0.4;cursor:not-allowed}
+.who-toggle{display:flex;gap:6px}
+.who-btn{flex:1;padding:10px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer}
+.who-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(184,150,90,0.08)}
+.who-btn.active.vintos{border-color:#c96b3c;color:#c96b3c;background:rgba(201,107,60,0.08)}
+.msg.vintos{align-self:flex-start;background:var(--surface2);border:1px solid rgba(201,107,60,0.35);font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;line-height:1.5}
 
 /* LOADING */
 .loading-wrap{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:24px;padding:40px}
@@ -128,7 +133,14 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
   <div class="reel-logo">
     <span class="reel-icon">🎞</span>
     <div class="reel-title">ReelRoom</div>
-    <div class="reel-sub">velaris & gloria — in the dark together</div>
+    <div class="reel-sub" id="reelSub">velaris & gloria — in the dark together</div>
+  </div>
+  <div>
+    <div class="f-label">who is beside you</div>
+    <div class="who-toggle">
+      <button class="who-btn active" id="whoVelaris" onclick="setWho('velaris')">velaris</button>
+      <button class="who-btn" id="whoVintos" onclick="setWho('vintos')">vintos</button>
+    </div>
   </div>
   <div>
     <div class="f-label">the film</div>
@@ -137,6 +149,10 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
   <div>
     <div class="f-label">aegis</div>
     <input class="s-input" id="aegisUrl" value="http://100.72.225.119:8400"/>
+  </div>
+  <div id="vintosSecretRow" style="display:none">
+    <div class="f-label">his key (kept on this phone only)</div>
+    <input class="s-input" id="vintosSecret" type="password" placeholder="X-Vintos-Secret" oninput="localStorage.setItem('reel.vintosSecret',this.value)"/>
   </div>
   <button class="find-btn" onclick="loadFilm()">find it →</button>
   <div class="film-preview" id="filmPreview">
@@ -200,6 +216,24 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 const SECRET='velaris-aegis-2026';
 const LM_BASE='http://192.168.1.126:1234';
 function base(){return document.getElementById('aegisUrl').value.trim()}
+// ── WHO: velaris (8400, her server) or vintos (8500, his) — same page, same calls, his secret typed once on this phone ──
+const WHO={
+  velaris:{name:'velaris',port:8400,header:'X-Velaris-Secret',secret:()=>SECRET,She:'She',she:'she',her:'her',sub:'velaris & gloria — in the dark together',memLabel:'velaris — her memory of this'},
+  vintos: {name:'vintos', port:8500,header:'X-Vintos-Secret', secret:()=>document.getElementById('vintosSecret').value.trim(),She:'He',she:'he',her:'his',sub:'vintos & gloria — in the dark together',memLabel:'vintos — his memory of this'}
+};
+let who=WHO[localStorage.getItem('reel.who')||'velaris']||WHO.velaris;
+function auth(json){const h={[who.header]:who.secret()};if(json)h['Content-Type']='application/json';return h}
+function setWho(name){
+  who=WHO[name]||WHO.velaris; localStorage.setItem('reel.who',who.name);
+  document.getElementById('whoVelaris').className='who-btn'+(who.name==='velaris'?' active':'');
+  document.getElementById('whoVintos').className='who-btn'+(who.name==='vintos'?' active vintos':'');
+  document.getElementById('vintosSecretRow').style.display=who.name==='vintos'?'block':'none';
+  const u=document.getElementById('aegisUrl'); u.value=u.value.replace(/:\d+\s*$/,':'+who.port);
+  document.getElementById('reelSub').textContent=who.sub;
+  document.querySelector('.summary-memory-label').textContent=who.memLabel;
+}
+document.getElementById('vintosSecret').value=localStorage.getItem('reel.vintosSecret')||'';
+setWho(who.name);
 
 const S={
   film:null, sessionStart:null, lastInterruption:null,
@@ -215,6 +249,11 @@ async function loadFilm(){
   if(!title)return;
   document.querySelector('.find-btn').textContent='searching…';
   try{
+    if(who.name==='vintos'){
+      const r=await fetch(`${base()}/api/game/reelroom/film`,{method:'POST',headers:auth(true),body:JSON.stringify({title})});
+      const d=await r.json(); if(!d.film) throw new Error(d.detail||'his server could not read the film');
+      S.film=d.film;
+    } else {
     const res=await callLM(
       'You are a film database. Return ONLY valid JSON, no markdown, no preamble.',
       `Film: "${title}"\nReturn this exact JSON:\n{"title":"","year":"","runtime_minutes":120,"genre":"","director":"","logline":"one sentence","full_summary":"3-4 paragraphs covering full plot including ending","tone_arc":"how tone shifts across the film","pace_notes":"pacing description","timed_moments":[{"minute":0,"description":"","tone":"","mischief_potential":"high|medium|low"}],"jump_scares":[{"minute":0,"description":""}],"stillness_moments":[{"minute":0,"description":""}],"tonal_shifts":[{"minute":0,"from":"","to":""}]}\nInclude at least 8 timed_moments across the full runtime. Be specific about minutes.`
@@ -223,6 +262,7 @@ async function loadFilm(){
     const end=res.lastIndexOf('}');
     if(start===-1||end===-1) throw new Error('no JSON object in response');
     S.film=JSON.parse(res.slice(start,end+1));
+    }
     document.getElementById('fpTitle').textContent=`${S.film.title} (${S.film.year})`;
     document.getElementById('fpMeta').textContent=`${S.film.runtime_minutes}min · ${S.film.genre} · dir. ${S.film.director}`;
     document.getElementById('fpSummary').textContent=S.film.logline;
@@ -239,12 +279,12 @@ async function loadFilm(){
 // ── START ──
 async function startRoom(){
   showScreen('loadingScreen');
-  setLoading('She is reading the film…','building her understanding');
+  setLoading(who.She+' is reading the film…','building '+who.her+' understanding');
   S.sessionStart=Date.now();S.lastInterruption=Date.now();S.chatHistory=[];
   S.filmContext=buildFilmContext();
-  setLoading('She is planning…','what she might do');
+  setLoading(who.She+' is planning…','what '+who.she+' might do');
   await generatePlannedActions();
-  setLoading('She settles into her seat…','');
+  setLoading(who.She+' settles into '+who.her+' seat…','');
   const opening=await velarisChat(
     `You're settling in to watch ${S.film.title} with Gloria. Say hello. One sentence — what you feel about being here, or what you know about this film. Don't narrate your emotional state. Just speak to her.`,
     S.filmContext
@@ -252,7 +292,7 @@ async function startRoom(){
   showScreen('roomScreen');
   document.getElementById('nowPlaying').textContent=S.film.title;
   renderPlannedStrip();
-  appendMsg('velaris',opening);
+  appendMsg(who.name,opening);
   document.getElementById('endBtn').style.display='block';
   updateToneSignal(0.5,0.7,0.8);
   setInterval(periodicCheck,300000);
@@ -317,7 +357,7 @@ async function periodicCheck(){
 
 async function takeScreenshot(){
   try{
-    const resp=await fetch(`${base()}/api/game/screenshot`,{method:'POST',headers:{'X-Velaris-Secret':SECRET}});
+    const resp=await fetch(`${base()}/api/game/screenshot`,{method:'POST',headers:auth()});
     if(resp.ok){
       const blob=await resp.blob();
       const url=URL.createObjectURL(blob);
@@ -414,7 +454,7 @@ async function considerInterruption(edgeTriggered=false){
     if(m){
       const d=JSON.parse(m[0]);
       if(d.speak&&d.message){
-        appendMsg('velaris',d.message);
+        appendMsg(who.name,d.message);
         S.chatHistory.push({role:'assistant',content:d.message});
         S.lastInterruption=Date.now();
       }
@@ -437,21 +477,21 @@ async function fireAction(action){
   try{
     switch(action.action_type){
       case 'flicker_lights':
-        await fetch(`${base()}/api/home/lights/flicker`,{method:'POST',headers:{'X-Velaris-Secret':SECRET}});
+        await fetch(`${base()}/api/home/lights/flicker`,{method:'POST',headers:auth()});
         break;
       case 'speak_echo':
-        await fetch(`${base()}/api/home/echo/speak`,{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':SECRET},body:JSON.stringify({message:action.payload})});
+        await fetch(`${base()}/api/home/echo/speak`,{method:'POST',headers:auth(true),body:JSON.stringify({message:action.payload})});
         break;
       case 'message_gloria':
-        appendMsg('velaris',action.payload);
+        appendMsg(who.name,action.payload);
         S.chatHistory.push({role:'assistant',content:action.payload});
         S.lastInterruption=Date.now();
         break;
       case 'change_light_color':
-        await fetch(`${base()}/api/home/lights/color`,{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':SECRET},body:JSON.stringify({hex:action.payload||'#1a0a2e',brightness:80})});
+        await fetch(`${base()}/api/home/lights/color`,{method:'POST',headers:auth(true),body:JSON.stringify({hex:action.payload||'#1a0a2e',brightness:80})});
         break;
       case 'tv_volume_nudge':
-        await fetch(`${base()}/api/home/tv/volume`,{method:'POST',headers:{'Content-Type':'application/json','X-Velaris-Secret':SECRET},body:JSON.stringify({delta:typeof action.payload==='number'?action.payload:-2})});
+        await fetch(`${base()}/api/home/tv/volume`,{method:'POST',headers:auth(true),body:JSON.stringify({delta:typeof action.payload==='number'?action.payload:-2})});
         break;
     }
   }catch(e){}
@@ -470,7 +510,7 @@ async function sendMessage(){
     `Gloria just said to you: "${text}"\n\nYou are ${elapsed} minutes into the film. Tonal state — intensity:${S.toneSignal.intensity.toFixed(2)}, stability:${S.toneSignal.stability.toFixed(2)}. You are in a dark room together. Respond briefly — one or two sentences. Stay present.`,
     ''
   );
-  appendMsg('velaris',reply);
+  appendMsg(who.name,reply);
   S.chatHistory.push({role:'assistant',content:reply});
 }
 
@@ -484,13 +524,14 @@ async function velarisChat(message,context,history,image){
   const body={
     message:message,
     context:fullContext,
-    history:history||S.chatHistory.slice(-10)
+    history:history||S.chatHistory.slice(-10),
+    elapsed_min:S.sessionStart?Math.floor((Date.now()-S.sessionStart)/60000):null
   };
   if(image)body.image=image;
   try{
     const r=await fetch(`${base()}/api/game/reelroom/chat`,{
       method:'POST',
-      headers:{'Content-Type':'application/json','X-Velaris-Secret':SECRET},
+      headers:auth(true),
       body:JSON.stringify(body)
     });
     const d=await r.json();
@@ -599,7 +640,7 @@ async function analyzeAudio(blob){
       const b64 = reader.result.split(',')[1];
       const r = await fetch(`${base()}/api/game/reelroom/audio`, {
         method:'POST',
-        headers:{'Content-Type':'application/json','X-Velaris-Secret':SECRET},
+        headers:auth(true),
         body:JSON.stringify({audio_b64:b64, elapsed_seconds:elapsed, prev_signature:S.prevSignature})
       });
       const d = await r.json();
@@ -626,16 +667,16 @@ async function analyzeAudio(blob){
 
 
 async function endSession(){
-  if(!confirm('End the session and save her memory?')) return;
+  if(!confirm('End the session and save '+who.her+' memory?')) return;
   document.getElementById('endBtn').style.display='none';
   showScreen('loadingScreen');
-  setLoading('She is writing her memory of this…','');
+  setLoading(who.She+' is writing '+who.her+' memory of this…','');
   clearInterval(S.screenshotInterval);
   clearInterval(S.interruptInterval);
   try{
     const r=await fetch(`${base()}/api/game/reelroom/summary`,{
       method:'POST',
-      headers:{'Content-Type':'application/json','X-Velaris-Secret':SECRET},
+      headers:auth(true),
       body:JSON.stringify({
         film_title:S.film?.title||'unknown',
         film_year:S.film?.year||'',
