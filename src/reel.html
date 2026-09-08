@@ -427,7 +427,8 @@ async function analyzeScreenshotTone(imgUrl,ts){
       `You are ${elapsed} minutes into watching "${S.film.title}". I am sending you a screenshot of what is on the TV right now.\n\nRate the current moment on three axes (0.0–1.0):\n- intensity: how much energy/weight the scene carries\n- clarity: how legible/coherent what is happening is\n- stability: how stable/settled the scene feels\n\nAlso name if an edge just occurred: surge, drop, fracture, veil, reveal, or none.\nAlso write one short phrase describing what you see (visual_description).\n\nReply ONLY with JSON: {"intensity":0.0,"clarity":0.0,"stability":0.0,"edge":"none","visual_description":""}`,
       'Return only JSON.',
       [],
-      b64
+      b64,
+      'look'
     );
     const m=raw.replace(/`+json|`+/g,'').match(/\{[^}]+\}/s);
     if(m){
@@ -447,7 +448,8 @@ async function considerInterruption(edgeTriggered=false){
   const elapsed=Math.floor((Date.now()-S.sessionStart)/60000);
   const raw=await velarisChat(
     `You are ${elapsed} minutes into watching "${S.film.title}" with Gloria. Current tonal state — intensity:${S.toneSignal.intensity.toFixed(2)}, clarity:${S.toneSignal.clarity.toFixed(2)}, stability:${S.toneSignal.stability.toFixed(2)}. ${S.currentEdge?`Last edge detected: ${S.currentEdge}.`:''} Minutes since your last interruption: ${minsSince.toFixed(0)}. Remaining planned actions: ${S.plannedActions.filter(a=>!a.fired).map(a=>`${a.emoji}~${a.minute}m`).join(', ')||'none'}.\n\nShould you say something right now, or hold? Do not interrupt during high tension unless it is deliberate mischief. Most edges should be ignored.\n\nReply ONLY with JSON: {"speak":false,"message":"one sentence if speaking","reason":"why"}`,
-    'Return only JSON.'
+    'Return only JSON.',
+    undefined, undefined, 'decide'
   );
   try{
     const m=raw.replace(/`+json|`+/g,'').match(/\{[\s\S]*?\}/);
@@ -518,7 +520,7 @@ function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMe
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,80)+'px'}
 
 // ── VELARIS CHAT via /api/game/chat ──
-async function velarisChat(message,context,history,image){
+async function velarisChat(message,context,history,image,mode){
   const mapCtx = getSessionMapContext();
   const fullContext = (context||S.filmContext) + (mapCtx ? '\n\n' + mapCtx : '');
   const body={
@@ -528,6 +530,9 @@ async function velarisChat(message,context,history,image){
     elapsed_min:S.sessionStart?Math.floor((Date.now()-S.sessionStart)/60000):null
   };
   if(image)body.image=image;
+  // his server: "look" (a frame, Gemma) and "decide" (say anything? Gemma; Sonnet only if he speaks) keep the
+  // five-minute checks off Sonnet. Her server ignores the field.
+  if(mode)body.mode=mode;
   try{
     const r=await fetch(`${base()}/api/game/reelroom/chat`,{
       method:'POST',
