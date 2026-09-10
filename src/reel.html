@@ -73,9 +73,13 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 .p-pip.fired{background:rgba(60,60,60,0.2);border-color:var(--border);color:var(--muted);text-decoration:line-through}
 .p-state{font-size:9px;color:var(--text2);white-space:nowrap}
 .p-state.error{color:var(--coral)}
-.screenshot-panel{margin:8px 16px 0;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:#000;display:none;position:relative;animation:fadeUp 0.4s ease}
-.screenshot-panel.on{display:block}
-.ss-img{width:100%;display:block;opacity:0.85;border-radius:9px}
+.screenshot-panel{margin:8px 16px 4px;aspect-ratio:16/9;border-radius:12px;overflow:hidden;border:1px solid rgba(184,150,90,.28);background:radial-gradient(ellipse at center,#10101a 0%,#030305 72%);display:flex;align-items:center;justify-content:center;position:relative;box-shadow:0 10px 36px rgba(0,0,0,.6),inset 0 0 30px rgba(120,104,160,.08);animation:fadeUp 0.4s ease}
+.screenshot-panel::before{content:'';position:absolute;inset:7px;border:1px solid rgba(255,255,255,.045);border-radius:7px;pointer-events:none;z-index:2}
+.screenshot-panel.on{border-color:rgba(184,150,90,.42);box-shadow:0 12px 42px rgba(0,0,0,.72),0 0 24px var(--screen-glow)}
+.ss-img{width:100%;height:100%;display:none;object-fit:contain;opacity:.94;background:#000}
+.screenshot-panel.on .ss-img{display:block}
+.ss-waiting{font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.25);text-align:center}
+.screenshot-panel.on .ss-waiting{display:none}
 .ss-stamp{position:absolute;bottom:8px;right:10px;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.5);background:rgba(0,0,0,0.5);padding:2px 6px;border-radius:6px}
 .chat-log{padding:12px 16px 0;display:flex;flex-direction:column;gap:2px;flex:1}
 .action-sticker{align-self:center;display:inline-flex;align-items:center;gap:6px;background:rgba(120,104,160,0.12);border:1px solid rgba(120,104,160,0.25);border-radius:20px;padding:4px 12px;margin:6px 0;font-size:10px;letter-spacing:0.1em;color:var(--lavender);animation:stickerPop 0.3s cubic-bezier(0.34,1.56,0.64,1)}
@@ -177,6 +181,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 
 <!-- ROOM -->
 <div class="screen" id="roomScreen">
+<button class="end-btn" id="endBtn" onclick="endSession()" style="display:none">end film</button>
 <div class="room-wrap">
   <div class="room-header">
     <div>
@@ -190,6 +195,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
   </div>
   <div class="chat-log" id="chatLog"></div>
   <div class="screenshot-panel" id="screenshotPanel">
+    <div class="ss-waiting" id="ssWaiting">theatre screen · waiting for the TV</div>
     <img class="ss-img" id="ssImg" src="" alt=""/>
     <div class="ss-stamp" id="ssStamp"></div>
   </div>
@@ -243,7 +249,7 @@ const S={
   planStatus:'unrequested', planError:'', screenshotInterval:null, interruptInterval:null, actionInterval:null,
   toneSignal:{intensity:0.5,clarity:0.7,stability:0.8},
   toneHistory:[], // [{intensity,clarity,stability,t}]
-  currentEdge:null
+  currentEdge:null, screenshotUrl:null
 };
 
 // ── FILM LOAD (LM Studio direct — no Velaris context needed) ──
@@ -393,12 +399,13 @@ async function takeScreenshot(){
       const blob=await resp.blob();
       const url=URL.createObjectURL(blob);
       const ts=fmtTime(Date.now()-S.sessionStart);
-      // append screenshot inline in chat flow
-      const _ssDiv=document.createElement('div');
-      _ssDiv.style.cssText='margin:8px 0;border-radius:10px;overflow:hidden;border:1px solid #1a1a28';
-      _ssDiv.innerHTML=`<img src="${url}" style="width:100%;display:block;opacity:0.85;border-radius:9px"/><div style="font-size:9px;color:rgba(255,255,255,0.4);padding:4px 8px;background:rgba(0,0,0,0.4)">${ts}</div>`;
-      document.getElementById('chatLog').appendChild(_ssDiv);
-      _ssDiv.scrollIntoView({behavior:'smooth',block:'end'});
+      // The TV is this room's visual surface. Keep one theatre screen in place
+      // and refresh its frame; avatar-scene imagery does not belong here.
+      if(S.screenshotUrl)URL.revokeObjectURL(S.screenshotUrl);
+      S.screenshotUrl=url;
+      document.getElementById('ssImg').src=url;
+      document.getElementById('ssStamp').textContent=ts;
+      document.getElementById('screenshotPanel').classList.add('on');
       // Tonal delta from screenshot via Velaris
       await analyzeScreenshotTone(url,ts);
       return true;
