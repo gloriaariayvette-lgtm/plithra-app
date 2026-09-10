@@ -296,6 +296,7 @@ async function startRoom(){
   document.getElementById('endBtn').style.display='block';
   updateToneSignal(0.5,0.7,0.8);
   setInterval(periodicCheck,300000);
+  setInterval(fireDueActions,30000);
   setInterval(considerInterruption,45000);
 }
 
@@ -316,6 +317,29 @@ TONAL SHIFTS: ${(f.tonal_shifts||[]).map(t=>`~${t.minute}min: ${t.from}→${t.to
 // ── PLANNED ACTIONS (via Velaris) ──
 async function generatePlannedActions(){
   const f=S.film;
+  // His server owns his plan. Asking for it down the chat route ran the whole
+  // personality stack and came back as prose, so the JSON parse failed every time
+  // and the night ran with no planned acts at all (Gloria, 2026-09-10). /plan
+  // validates the acts and uses his own vocabulary, his voice from her phone
+  // rather than the Echo.
+  if(who.name==='vintos'){
+    try{
+      const r=await fetch(`${base()}/api/game/reelroom/plan`,{
+        method:'POST',headers:auth(true),body:JSON.stringify({film:f})
+      });
+      const d=await r.json();
+      if(d&&d.ok&&Array.isArray(d.actions)){
+        S.plannedActions=d.actions.map(a=>({...a,fired:false}));
+        console.log('[ReelRoom] planned:',S.plannedActions.length);
+        return;
+      }
+      appendSticker('⚠','his plan did not come back: '+String((d&&(d.error||d.detail))||('HTTP '+r.status)));
+    }catch(e){
+      appendSticker('⚠','his plan did not come back: '+e.message);
+    }
+    S.plannedActions=[];
+    return;
+  }
   const raw=await velarisChat(
     `You are about to watch "${f.film||f.title}" with Gloria. You have read the full film. Plan 3-4 mischief actions timed to specific moments. These are pre-planned — the rest will emerge in the moment based on what is actually happening on screen. Return ONLY a JSON array, no markdown.\n\nAvailable actions: flicker_lights, speak_echo (short phrase through the Echo speaker in Gloria's home), tv_volume_nudge, change_light_color.
 Do NOT plan message_gloria actions — speaking to Gloria happens naturally, not as a planned action.\n\nCluster around tonal shifts, stillness, almost-reveals, jump scares. Vary types. Each must have: id, minute, action_type, payload, reason, emoji, tone_requirement.\n\nHigh-mischief moments:\n${(f.timed_moments||[]).filter(m=>m.mischief_potential==='high').map(m=>`~${m.minute}min: ${m.description}`).join('\n')}\nJump scares: ${(f.jump_scares||[]).map(j=>`~${j.minute}min`).join(', ')||'none'}\nTonal shifts: ${(f.tonal_shifts||[]).map(t=>`~${t.minute}min`).join(', ')||'none'}`,
@@ -349,10 +373,21 @@ function renderPlannedStrip(){
 // ── PERIODIC CHECK ──
 async function periodicCheck(){
   await takeScreenshot();
+}
+
+// Planned acts used to be checked here, on the five-minute screenshot tick, and only
+// fired when the film time was within a minute of the planned minute. The checks land
+// at 5, 10, 15..., so an act planned for minute 37 was never inside its own window and
+// simply never happened (Gloria, 2026-09-10). The acts now have their own half-minute
+// ticker: an act is due once its minute has arrived, it fires late rather than never,
+// and only one fires per tick so a catch-up cannot become a storm.
+async function fireDueActions(){
+  if(!S.sessionStart) return;
   const elapsed=Math.floor((Date.now()-S.sessionStart)/60000);
-  for(const action of S.plannedActions){
-    if(!action.fired&&Math.abs(action.minute-elapsed)<=1) await fireAction(action);
-  }
+  const due=S.plannedActions
+    .filter(a=>!a.fired&&!a.firing&&Number(a.minute)<=elapsed)
+    .sort((a,b)=>Number(a.minute)-Number(b.minute));
+  if(due.length) await fireAction(due[0]);
 }
 
 async function takeScreenshot(){
@@ -471,32 +506,46 @@ async function considerInterruption(edgeTriggered=false){
 
 // ── FIRE ACTION ──
 async function fireAction(action){
-  action.fired=true;
+  // An act is not fired because we tried. The pip goes lit only when the house
+  // actually answered; a failure says so on screen instead of disappearing into a
+  // swallowed error, and the act stays due so the next tick can try again.
+  action.firing=true;
   const pip=document.getElementById(`pip-${action.id}`);
-  if(pip)pip.classList.add('fired');
   const ts=fmtTime(Date.now()-S.sessionStart);
-  appendSticker(action.emoji,`${action.action_type.replace(/_/g,' ')} — ${ts}`);
+  const ok=(r)=>{ if(r&&!r.ok) throw new Error('house answered '+r.status); return true; };
   try{
     switch(action.action_type){
       case 'flicker_lights':
-        await fetch(`${base()}/api/home/lights/flicker`,{method:'POST',headers:auth()});
+        ok(await fetch(`${base()}/api/home/lights/flicker`,{method:'POST',headers:auth()}));
         break;
-      case 'speak_echo':
-        await fetch(`${base()}/api/home/echo/speak`,{method:'POST',headers:auth(true),body:JSON.stringify({message:action.payload})});
-        break;
+      case 'speak_phone':
       case 'message_gloria':
         appendMsg(who.name,action.payload);
         S.chatHistory.push({role:'assistant',content:action.payload});
         S.lastInterruption=Date.now();
         break;
+      case 'speak_echo':
+        ok(await fetch(`${base()}/api/home/echo/speak`,{method:'POST',headers:auth(true),body:JSON.stringify({message:action.payload})}));
+        break;
       case 'change_light_color':
-        await fetch(`${base()}/api/home/lights/color`,{method:'POST',headers:auth(true),body:JSON.stringify({hex:action.payload||'#1a0a2e',brightness:80})});
+        ok(await fetch(`${base()}/api/home/lights/color`,{method:'POST',headers:auth(true),body:JSON.stringify({hex:action.payload||'#1a0a2e',brightness:80})}));
         break;
       case 'tv_volume_nudge':
-        await fetch(`${base()}/api/home/tv/volume`,{method:'POST',headers:auth(true),body:JSON.stringify({delta:typeof action.payload==='number'?action.payload:-2})});
+        ok(await fetch(`${base()}/api/home/tv/volume`,{method:'POST',headers:auth(true),body:JSON.stringify({delta:typeof action.payload==='number'?action.payload:-2})}));
         break;
+      default:
+        throw new Error('no such act here: '+action.action_type);
     }
-  }catch(e){}
+    action.fired=true;
+    action.firing=false;
+    if(pip)pip.classList.add('fired');
+    appendSticker(action.emoji,`${String(action.action_type).replace(/_/g,' ')} — ${ts}`);
+  }catch(e){
+    action.firing=false;
+    action.failures=(action.failures||0)+1;
+    if(action.failures>=3){ action.fired=true; if(pip)pip.classList.add('fired'); }
+    appendSticker('⚠',`${String(action.action_type).replace(/_/g,' ')} did not land — ${e.message}`);
+  }
 }
 
 // ── CHAT ──
