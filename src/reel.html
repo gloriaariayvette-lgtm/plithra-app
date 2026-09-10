@@ -71,6 +71,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 .p-label-s{font-size:9px;color:var(--muted);letter-spacing:0.15em;white-space:nowrap}
 .p-pip{font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(120,104,160,0.1);border:1px solid rgba(120,104,160,0.2);color:var(--lavender);white-space:nowrap}
 .p-pip.fired{background:rgba(60,60,60,0.2);border-color:var(--border);color:var(--muted);text-decoration:line-through}
+.p-state{font-size:9px;color:var(--text2);white-space:nowrap}
+.p-state.error{color:var(--coral)}
 .screenshot-panel{margin:8px 16px 0;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:#000;display:none;position:relative;animation:fadeUp 0.4s ease}
 .screenshot-panel.on{display:block}
 .ss-img{width:100%;display:block;opacity:0.85;border-radius:9px}
@@ -238,6 +240,7 @@ setWho(who.name);
 const S={
   film:null, sessionStart:null, lastInterruption:null,
   plannedActions:[], chatHistory:[], filmContext:'',
+  planStatus:'unrequested', planError:'', screenshotInterval:null, interruptInterval:null, actionInterval:null,
   toneSignal:{intensity:0.5,clarity:0.7,stability:0.8},
   toneHistory:[], // [{intensity,clarity,stability,t}]
   currentEdge:null
@@ -278,6 +281,7 @@ async function loadFilm(){
 
 // ── START ──
 async function startRoom(){
+  unlockPhoneAudio();
   showScreen('loadingScreen');
   setLoading(who.She+' is reading the film…','building '+who.her+' understanding');
   S.sessionStart=Date.now();S.lastInterruption=Date.now();S.chatHistory=[];
@@ -285,18 +289,28 @@ async function startRoom(){
   setLoading(who.She+' is planning…','what '+who.she+' might do');
   await generatePlannedActions();
   setLoading(who.She+' settles into '+who.her+' seat…','');
-  const opening=await velarisChat(
-    `You're settling in to watch ${S.film.title} with Gloria. Say hello. One sentence — what you feel about being here, or what you know about this film. Don't narrate your emotional state. Just speak to her.`,
-    S.filmContext
-  );
+  let opening='';
+  try{
+    opening=await velarisChat(
+      `You're settling in to watch ${S.film.title} with Gloria. Say hello. One sentence — what you feel about being here, or what you know about this film. Don't narrate your emotional state. Just speak to her.`,
+      S.filmContext
+    );
+  }catch(e){ opening='[I could not reach his side of the room: '+e.message+']'; }
   showScreen('roomScreen');
   document.getElementById('nowPlaying').textContent=S.film.title;
   renderPlannedStrip();
   appendMsg(who.name,opening);
+  if(opening&&opening[0]!=='[')S.chatHistory.push({role:'assistant',content:opening});
   document.getElementById('endBtn').style.display='block';
   updateToneSignal(0.5,0.7,0.8);
-  setInterval(periodicCheck,300000);
-  setInterval(considerInterruption,45000);
+  const firstLook=takeScreenshot();
+  const firstVoice=(who.name==='vintos' && opening[0]!=='[')
+    ? speakOnPhone(opening).catch(e=>appendSticker('⚠','phone voice failed — '+e.message))
+    : Promise.resolve();
+  await Promise.allSettled([firstLook,firstVoice]);
+  S.screenshotInterval=setInterval(periodicCheck,300000);
+  S.interruptInterval=setInterval(considerInterruption,45000);
+  S.actionInterval=setInterval(checkPlannedActions,15000);
 }
 
 function buildFilmContext(){
@@ -316,26 +330,40 @@ TONAL SHIFTS: ${(f.tonal_shifts||[]).map(t=>`~${t.minute}min: ${t.from}→${t.to
 // ── PLANNED ACTIONS (via Velaris) ──
 async function generatePlannedActions(){
   const f=S.film;
-  const raw=await velarisChat(
-    `You are about to watch "${f.film||f.title}" with Gloria. You have read the full film. Plan 3-4 mischief actions timed to specific moments. These are pre-planned — the rest will emerge in the moment based on what is actually happening on screen. Return ONLY a JSON array, no markdown.\n\nAvailable actions: flicker_lights, speak_echo (short phrase through the Echo speaker in Gloria's home), tv_volume_nudge, change_light_color.
-Do NOT plan message_gloria actions — speaking to Gloria happens naturally, not as a planned action.\n\nCluster around tonal shifts, stillness, almost-reveals, jump scares. Vary types. Each must have: id, minute, action_type, payload, reason, emoji, tone_requirement.\n\nHigh-mischief moments:\n${(f.timed_moments||[]).filter(m=>m.mischief_potential==='high').map(m=>`~${m.minute}min: ${m.description}`).join('\n')}\nJump scares: ${(f.jump_scares||[]).map(j=>`~${j.minute}min`).join(', ')||'none'}\nTonal shifts: ${(f.tonal_shifts||[]).map(t=>`~${t.minute}min`).join(', ')||'none'}`,
-    'Return ONLY a JSON array. No markdown. No explanation.'
-  );
+  S.planStatus='planning';S.planError='';S.plannedActions=[];
   try{
-    const _start=raw.indexOf('[');
-    const _end=raw.lastIndexOf(']');
-    if(_start===-1||_end===-1) throw new Error('no array: '+raw.slice(0,80));
-    S.plannedActions=JSON.parse(raw.slice(_start,_end+1)).map(a=>({...a,fired:false}));
-    console.log('[ReelRoom] planned:',S.plannedActions.length);
+    if(who.name==='vintos'){
+      const r=await fetch(`${base()}/api/game/reelroom/plan`,{method:'POST',headers:auth(true),body:JSON.stringify({film:f})});
+      const d=await jsonOrError(r);
+      if(!Array.isArray(d.actions))throw new Error('his server returned no action list');
+      S.plannedActions=d.actions.map(a=>({...a,fired:false}));
+      S.planStatus=d.status||'planned';
+    }else{
+      const raw=await velarisChat(
+        `You are about to watch "${f.film||f.title}" with Gloria. Plan 3-4 timed mischief actions. Return ONLY a JSON array. Available actions: flicker_lights, speak_echo, tv_volume_nudge, change_light_color. Every item needs id, minute, action_type, payload, reason, emoji, tone_requirement.`,
+        'Return ONLY a JSON array. No markdown. No explanation.'
+      );
+      const _start=raw.indexOf('['),_end=raw.lastIndexOf(']');
+      if(_start===-1||_end===-1)throw new Error('no action array returned');
+      S.plannedActions=JSON.parse(raw.slice(_start,_end+1)).map(a=>({...a,fired:false}));
+      S.planStatus=S.plannedActions.length?'planned':'chosen_none';
+    }
   }catch(e){
     console.error('[ReelRoom] planned parse fail:',e.message);
-    S.plannedActions=[];
+    S.planStatus='failed';S.planError=e.message;S.plannedActions=[];
   }
 }
 
 function renderPlannedStrip(){
   const strip=document.getElementById('plannedStrip');
-  strip.querySelectorAll('.p-pip').forEach(p=>p.remove());
+  strip.querySelectorAll('.p-pip,.p-state').forEach(p=>p.remove());
+  if(!S.plannedActions.length){
+    const state=document.createElement('span');
+    state.className='p-state'+(S.planStatus==='failed'?' error':'');
+    state.textContent=S.planStatus==='failed'?'planning failed — '+S.planError+' · tap to retry':'none chosen';
+    if(S.planStatus==='failed')state.onclick=async()=>{state.textContent='planning…';await generatePlannedActions();renderPlannedStrip()};
+    strip.appendChild(state);
+  }
   S.plannedActions.forEach(a=>{
     const pip=document.createElement('div');
     pip.className='p-pip'+(a.fired?' fired':'');
@@ -349,9 +377,12 @@ function renderPlannedStrip(){
 // ── PERIODIC CHECK ──
 async function periodicCheck(){
   await takeScreenshot();
+}
+
+async function checkPlannedActions(){
   const elapsed=Math.floor((Date.now()-S.sessionStart)/60000);
   for(const action of S.plannedActions){
-    if(!action.fired&&Math.abs(action.minute-elapsed)<=1) await fireAction(action);
+    if(!action.fired&&elapsed>=action.minute&&elapsed<action.minute+1) await fireAction(action);
   }
 }
 
@@ -370,8 +401,11 @@ async function takeScreenshot(){
       _ssDiv.scrollIntoView({behavior:'smooth',block:'end'});
       // Tonal delta from screenshot via Velaris
       await analyzeScreenshotTone(url,ts);
+      return true;
     }
-  }catch(e){}
+    const d=await resp.json().catch(()=>({}));
+    throw new Error(d.detail||`screen returned ${resp.status}`);
+  }catch(e){appendSticker('⚠','no TV visual — '+e.message);return false}
 }
 
 // ── TONAL DELTA SYSTEM ──
@@ -446,11 +480,14 @@ async function considerInterruption(edgeTriggered=false){
   if(!edgeTriggered && minsSince<8)return;
   if(edgeTriggered && minsSince<3)return; // edge-triggered: shorter minimum gap
   const elapsed=Math.floor((Date.now()-S.sessionStart)/60000);
-  const raw=await velarisChat(
-    `You are ${elapsed} minutes into watching "${S.film.title}" with Gloria. Current tonal state — intensity:${S.toneSignal.intensity.toFixed(2)}, clarity:${S.toneSignal.clarity.toFixed(2)}, stability:${S.toneSignal.stability.toFixed(2)}. ${S.currentEdge?`Last edge detected: ${S.currentEdge}.`:''} Minutes since your last interruption: ${minsSince.toFixed(0)}. Remaining planned actions: ${S.plannedActions.filter(a=>!a.fired).map(a=>`${a.emoji}~${a.minute}m`).join(', ')||'none'}.\n\nShould you say something right now, or hold? Do not interrupt during high tension unless it is deliberate mischief. Most edges should be ignored.\n\nReply ONLY with JSON: {"speak":false,"message":"one sentence if speaking","reason":"why"}`,
-    'Return only JSON.',
-    undefined, undefined, 'decide'
-  );
+  let raw='';
+  try{
+    raw=await velarisChat(
+      `You are ${elapsed} minutes into watching "${S.film.title}" with Gloria. Current tonal state — intensity:${S.toneSignal.intensity.toFixed(2)}, clarity:${S.toneSignal.clarity.toFixed(2)}, stability:${S.toneSignal.stability.toFixed(2)}. ${S.currentEdge?`Last edge detected: ${S.currentEdge}.`:''} Minutes since your last interruption: ${minsSince.toFixed(0)}. Remaining planned actions: ${S.plannedActions.filter(a=>!a.fired).map(a=>`${a.emoji}~${a.minute}m`).join(', ')||'none'}.\n\nShould you say something right now, or hold? Do not interrupt during high tension unless it is deliberate mischief. Most edges should be ignored.\n\nReply ONLY with JSON: {"speak":false,"message":"one sentence if speaking","reason":"why"}`,
+      'Return only JSON.',
+      undefined, undefined, 'decide'
+    );
+  }catch(e){appendSticker('⚠','his in-the-moment check failed — '+e.message);return}
   try{
     const m=raw.replace(/`+json|`+/g,'').match(/\{[\s\S]*?\}/);
     if(m){
@@ -459,6 +496,7 @@ async function considerInterruption(edgeTriggered=false){
         appendMsg(who.name,d.message);
         S.chatHistory.push({role:'assistant',content:d.message});
         S.lastInterruption=Date.now();
+        if(who.name==='vintos') await speakOnPhone(d.message).catch(e=>appendSticker('⚠','phone voice failed — '+e.message));
       }
       // unplanned action
       if(d.action&&d.action!=='none'){
@@ -471,18 +509,21 @@ async function considerInterruption(edgeTriggered=false){
 
 // ── FIRE ACTION ──
 async function fireAction(action){
-  action.fired=true;
-  const pip=document.getElementById(`pip-${action.id}`);
-  if(pip)pip.classList.add('fired');
+  if(action.firing||action.fired)return false;
+  action.firing=true;
   const ts=fmtTime(Date.now()-S.sessionStart);
-  appendSticker(action.emoji,`${action.action_type.replace(/_/g,' ')} — ${ts}`);
   try{
+    let r=null;
     switch(action.action_type){
       case 'flicker_lights':
-        await fetch(`${base()}/api/home/lights/flicker`,{method:'POST',headers:auth()});
+        r=await fetch(`${base()}/api/home/lights/flicker`,{method:'POST',headers:auth(true),body:JSON.stringify({room:'living_room'})});
         break;
       case 'speak_echo':
-        await fetch(`${base()}/api/home/echo/speak`,{method:'POST',headers:auth(true),body:JSON.stringify({message:action.payload})});
+        if(who.name==='vintos') await speakOnPhone(action.payload);
+        else r=await fetch(`${base()}/api/home/echo/speak`,{method:'POST',headers:auth(true),body:JSON.stringify({message:action.payload})});
+        break;
+      case 'speak_phone':
+        await speakOnPhone(action.payload);
         break;
       case 'message_gloria':
         appendMsg(who.name,action.payload);
@@ -490,13 +531,21 @@ async function fireAction(action){
         S.lastInterruption=Date.now();
         break;
       case 'change_light_color':
-        await fetch(`${base()}/api/home/lights/color`,{method:'POST',headers:auth(true),body:JSON.stringify({hex:action.payload||'#1a0a2e',brightness:80})});
+        r=await fetch(`${base()}/api/home/lights/color`,{method:'POST',headers:auth(true),body:JSON.stringify({hex:action.payload||'#1a0a2e',brightness:80,room:'living_room'})});
         break;
       case 'tv_volume_nudge':
-        await fetch(`${base()}/api/home/tv/volume`,{method:'POST',headers:auth(true),body:JSON.stringify({delta:typeof action.payload==='number'?action.payload:-2})});
+        r=await fetch(`${base()}/api/home/tv/volume`,{method:'POST',headers:auth(true),body:JSON.stringify({delta:typeof action.payload==='number'?action.payload:-2})});
         break;
+      default: throw new Error('unknown action '+action.action_type);
     }
-  }catch(e){}
+    if(r)await jsonOrError(r);
+    action.fired=true;
+    const pip=document.getElementById(`pip-${action.id}`);
+    if(pip)pip.classList.add('fired');
+    appendSticker(action.emoji,`${action.action_type.replace(/_/g,' ')} — ${ts}`);
+    return true;
+  }catch(e){appendSticker('⚠',`${action.action_type.replace(/_/g,' ')} failed — ${e.message}`);return false}
+  finally{action.firing=false}
 }
 
 // ── CHAT ──
@@ -508,21 +557,24 @@ async function sendMessage(){
   S.chatHistory.push({role:'user',content:text});
   S.lastInterruption=Date.now();
   const elapsed=Math.floor((Date.now()-S.sessionStart)/60000);
-  const reply=await velarisChat(
-    `Gloria just said to you: "${text}"\n\nYou are ${elapsed} minutes into the film. Tonal state — intensity:${S.toneSignal.intensity.toFixed(2)}, stability:${S.toneSignal.stability.toFixed(2)}. You are in a dark room together. Respond briefly — one or two sentences. Stay present.`,
-    ''
-  );
-  appendMsg(who.name,reply);
-  S.chatHistory.push({role:'assistant',content:reply});
+  try{
+    const reply=await velarisChat(text,'',S.chatHistory.slice(0,-1),undefined,undefined,text);
+    appendMsg(who.name,reply);
+    S.chatHistory.push({role:'assistant',content:reply});
+    if(who.name==='vintos') await speakOnPhone(reply).catch(e=>appendSticker('⚠','phone voice failed — '+e.message));
+  }catch(e){appendSticker('⚠','his reply failed — '+e.message)}
 }
 
 function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}}
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,80)+'px'}
 
 // ── VELARIS CHAT via /api/game/chat ──
-async function velarisChat(message,context,history,image,mode){
+async function velarisChat(message,context,history,image,mode,counterpartText){
   const mapCtx = getSessionMapContext();
-  const fullContext = (context||S.filmContext) + (mapCtx ? '\n\n' + mapCtx : '');
+  const liveTone = S.sessionStart
+    ? `\n\nREELROOM NOW: ${Math.floor((Date.now()-S.sessionStart)/60000)} minutes in; intensity ${S.toneSignal.intensity.toFixed(2)}, clarity ${S.toneSignal.clarity.toFixed(2)}, stability ${S.toneSignal.stability.toFixed(2)}${S.currentEdge?`; last edge ${S.currentEdge}`:''}.`
+    : '';
+  const fullContext = (context||S.filmContext) + (mapCtx ? '\n\n' + mapCtx : '') + liveTone;
   const body={
     message:message,
     context:fullContext,
@@ -530,18 +582,39 @@ async function velarisChat(message,context,history,image,mode){
     elapsed_min:S.sessionStart?Math.floor((Date.now()-S.sessionStart)/60000):null
   };
   if(image)body.image=image;
+  if(counterpartText!==undefined)body.counterpart_text=counterpartText;
   // his server: "look" (a frame, Gemma) and "decide" (say anything? Gemma; Sonnet only if he speaks) keep the
   // five-minute checks off Sonnet. Her server ignores the field.
   if(mode)body.mode=mode;
-  try{
-    const r=await fetch(`${base()}/api/game/reelroom/chat`,{
-      method:'POST',
-      headers:auth(true),
-      body:JSON.stringify(body)
-    });
-    const d=await r.json();
-    return d.reply||'';
-  }catch(e){return''}
+  const r=await fetch(`${base()}/api/game/reelroom/chat`,{
+    method:'POST',headers:auth(true),body:JSON.stringify(body)
+  });
+  const d=await jsonOrError(r);
+  if(d.error)throw new Error(d.error);
+  if(!d.reply)throw new Error('empty reply');
+  return d.reply;
+}
+
+let phoneAudio=null;
+function unlockPhoneAudio(){
+  if(who.name!=='vintos')return;
+  if(!phoneAudio)phoneAudio=new Audio();
+  phoneAudio.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+  phoneAudio.play().catch(()=>{});
+}
+async function jsonOrError(r){
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok||d.ok===false)throw new Error(d.detail||d.error||`server returned ${r.status}`);
+  return d;
+}
+async function speakOnPhone(text){
+  if(who.name!=='vintos'||!String(text||'').trim())return;
+  const r=await fetch(`${base()}/api/avatar/speak`,{method:'POST',headers:auth(true),body:JSON.stringify({text})});
+  const d=await jsonOrError(r);
+  if(!d.audio_url)throw new Error(d.error||'no phone audio returned');
+  if(!phoneAudio)phoneAudio=new Audio();
+  phoneAudio.src=/^(data:|https?:)/.test(d.audio_url)?d.audio_url:`${base()}${d.audio_url}`;
+  await phoneAudio.play();
 }
 
 // ── LM STUDIO (film data only) ──
@@ -678,6 +751,7 @@ async function endSession(){
   setLoading(who.She+' is writing '+who.her+' memory of this…','');
   clearInterval(S.screenshotInterval);
   clearInterval(S.interruptInterval);
+  clearInterval(S.actionInterval);
   try{
     const r=await fetch(`${base()}/api/game/reelroom/summary`,{
       method:'POST',
@@ -692,6 +766,7 @@ async function endSession(){
       })
     });
     const d=await r.json();
+    if(String(d.ledger||'').startsWith('failed:'))appendSticker('⚠','conversation ledger failed — '+d.ledger.slice(7));
     document.getElementById('sumTitle').textContent=S.film?.title||'';
     document.getElementById('sumMemory').textContent=d.summary||'…';
     showScreen('summaryScreen');
@@ -708,7 +783,9 @@ async function pollLMStatus(){
   const dot=document.getElementById('lmStatus');
   if(!dot)return;
   try{
-    const r=await fetch(`${LM_BASE}/v1/models`,{signal:AbortSignal.timeout(3000)});
+    const r=who.name==='vintos'
+      ? await fetch(`${base()}/api/game/reelroom/sessions`,{headers:auth(),signal:AbortSignal.timeout(3000)})
+      : await fetch(`${LM_BASE}/v1/models`,{signal:AbortSignal.timeout(3000)});
     dot.className='lm-status '+(r.ok?'idle':'error');
   }catch(e){
     dot.className='lm-status error';
