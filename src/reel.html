@@ -50,6 +50,10 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 .who-btn{flex:1;padding:10px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer}
 .who-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(184,150,90,0.08)}
 .who-btn.active.vintos{border-color:#c96b3c;color:#c96b3c;background:rgba(201,107,60,0.08)}
+.brain-row{display:none}
+.brain-toggle{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.brain-btn{padding:9px 3px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.brain-btn.active{border-color:#c96b3c;color:#c96b3c;background:rgba(201,107,60,.08)}
 .msg.vintos{align-self:flex-start;background:var(--surface2);border:1px solid rgba(201,107,60,0.35);font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;line-height:1.5}
 
 /* LOADING */
@@ -158,7 +162,16 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
   </div>
   <div id="vintosSecretRow" style="display:none">
     <div class="f-label">his key (kept on this phone only)</div>
-    <input class="s-input" id="vintosSecret" type="password" placeholder="X-Vintos-Secret" oninput="localStorage.setItem('reel.vintosSecret',this.value)"/>
+    <input class="s-input" id="vintosSecret" type="password" placeholder="X-Vintos-Secret" oninput="localStorage.setItem('reel.vintosSecret',this.value)" onchange="refreshBrain()"/>
+  </div>
+  <div class="brain-row" id="brainRow">
+    <div class="f-label">his speaking model</div>
+    <div class="brain-toggle">
+      <button class="brain-btn" data-brain="claude" onclick="setBrain('claude')">opus</button>
+      <button class="brain-btn" data-brain="sonnet" onclick="setBrain('sonnet')">sonnet</button>
+      <button class="brain-btn" data-brain="sol" onclick="setBrain('sol')">sol</button>
+      <button class="brain-btn" data-brain="grok" onclick="setBrain('grok')">grok</button>
+    </div>
   </div>
   <button class="find-btn" onclick="loadFilm()">find it →</button>
   <div class="film-preview" id="filmPreview">
@@ -236,12 +249,31 @@ function setWho(name){
   document.getElementById('whoVelaris').className='who-btn'+(who.name==='velaris'?' active':'');
   document.getElementById('whoVintos').className='who-btn'+(who.name==='vintos'?' active vintos':'');
   document.getElementById('vintosSecretRow').style.display=who.name==='vintos'?'block':'none';
+  document.getElementById('brainRow').style.display=who.name==='vintos'?'block':'none';
   const u=document.getElementById('aegisUrl'); u.value=u.value.replace(/:\d+\s*$/,':'+who.port);
   document.getElementById('reelSub').textContent=who.sub;
   document.querySelector('.summary-memory-label').textContent=who.memLabel;
+  if(who.name==='vintos')refreshBrain();
 }
 document.getElementById('vintosSecret').value=localStorage.getItem('reel.vintosSecret')||'';
 setWho(who.name);
+
+function paintBrain(mode){
+  document.querySelectorAll('.brain-btn').forEach(b=>b.classList.toggle('active',b.dataset.brain===mode));
+}
+async function refreshBrain(){
+  try{
+    const r=await fetch(`${base()}/api/avatar/brain`,{headers:auth()});
+    const d=await jsonOrError(r);paintBrain(d.mode||'claude');
+  }catch(e){paintBrain('claude')}
+}
+async function setBrain(mode){
+  if(who.name!=='vintos')return;
+  try{
+    const r=await fetch(`${base()}/api/avatar/brain`,{method:'POST',headers:auth(true),body:JSON.stringify({mode})});
+    const d=await jsonOrError(r);paintBrain(d.mode||mode);
+  }catch(e){appendSticker('⚠','model change failed — '+e.message)}
+}
 
 const S={
   film:null, sessionStart:null, lastInterruption:null,
@@ -585,13 +617,14 @@ async function velarisChat(message,context,history,image,mode,counterpartText){
   const body={
     message:message,
     context:fullContext,
+    film_title:S.film?.title||'',
     history:history||S.chatHistory.slice(-10),
     elapsed_min:S.sessionStart?Math.floor((Date.now()-S.sessionStart)/60000):null
   };
   if(image)body.image=image;
   if(counterpartText!==undefined)body.counterpart_text=counterpartText;
-  // his server: "look" (a frame, Gemma) and "decide" (say anything? Gemma; Sonnet only if he speaks) keep the
-  // five-minute checks off Sonnet. Her server ignores the field.
+  // His server: "look" (a frame, Gemma) and "decide" (say anything? Gemma; the selected speaking model only
+  // if he speaks) keep five-minute checks off Opus/Sonnet/Sol/Grok. Her server ignores the field.
   if(mode)body.mode=mode;
   const r=await fetch(`${base()}/api/game/reelroom/chat`,{
     method:'POST',headers:auth(true),body:JSON.stringify(body)
