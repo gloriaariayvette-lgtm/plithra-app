@@ -606,6 +606,18 @@ async function fireAction(action){
 }
 
 // ── CHAT ──
+// A fresh frame of the TV, as base64, for the turn that is about to be sent. Not
+// the five-minute one: when she speaks to him he should be looking at what is on
+// screen right now (Gloria, 2026-09-10).
+async function grabFrame(){
+  try{
+    const r=await fetch(`${base()}/api/game/screenshot`,{method:'POST',headers:auth()});
+    if(!r.ok)return null;
+    const blob=await r.blob();
+    return await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]);fr.onerror=()=>res(null);fr.readAsDataURL(blob)});
+  }catch(e){return null}
+}
+
 async function sendMessage(){
   const input=document.getElementById('chatInput');
   const text=input.value.trim();if(!text)return;
@@ -615,7 +627,8 @@ async function sendMessage(){
   S.lastInterruption=Date.now();
   const elapsed=Math.floor((Date.now()-S.sessionStart)/60000);
   try{
-    const reply=await velarisChat(text,'',S.chatHistory.slice(0,-1),undefined,undefined,text);
+    const frame=await grabFrame();
+    const reply=await velarisChat(text,'',S.chatHistory.slice(0,-1),frame||undefined,undefined,text);
     appendMsg(who.name,reply);
     S.chatHistory.push({role:'assistant',content:reply});
     if(who.name==='vintos') await speakOnPhone(reply).catch(e=>appendSticker('⚠','phone voice failed — '+e.message));
