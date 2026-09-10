@@ -418,9 +418,27 @@ async function periodicCheck(){
 }
 
 async function checkPlannedActions(){
+  if(!S.sessionStart)return;
   const elapsed=Math.floor((Date.now()-S.sessionStart)/60000);
-  for(const action of S.plannedActions){
-    if(!action.fired&&elapsed>=action.minute&&elapsed<action.minute+1) await fireAction(action);
+  // An act used to fire only DURING its own minute. A phone with its screen off
+  // throttles these timers, and a call that failed inside that minute was never
+  // tried again, so the act was simply lost. An act is due once its minute has
+  // arrived and stays due until it lands: late is better than never. One per tick,
+  // earliest first, so a catch-up cannot become a storm; three failures and it is
+  // let go with the failure already on screen.
+  const due=S.plannedActions
+    .filter(a=>!a.fired&&!a.firing&&elapsed>=Number(a.minute)&&(a.failures||0)<3)
+    .sort((a,b)=>Number(a.minute)-Number(b.minute));
+  if(!due.length)return;
+  const action=due[0];
+  const landed=await fireAction(action);
+  if(!landed){
+    action.failures=(action.failures||0)+1;
+    if(action.failures>=3){
+      action.fired=true;
+      const pip=document.getElementById(`pip-${action.id}`);
+      if(pip)pip.classList.add('fired');
+    }
   }
 }
 
