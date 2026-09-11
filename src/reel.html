@@ -431,10 +431,16 @@ async function checkPlannedActions(){
     .sort((a,b)=>Number(a.minute)-Number(b.minute));
   if(!due.length)return;
   const action=due[0];
+  const physical=['flicker_lights','speak_echo','change_light_color','tv_volume_nudge'].includes(action.action_type);
   const landed=await fireAction(action);
   if(!landed){
     action.failures=(action.failures||0)+1;
-    if(action.failures>=3){
+    // A physical act is fired at most once. A failed request may have reached the
+    // device before the response was lost, and there is no per-action id for the
+    // server to dedupe on, so a retry can flicker or nudge the room a second time.
+    // Mark it done after one attempt; the sticker already shows it did not confirm.
+    // Only the in-app acts (a line in the chat) are safe to try again.
+    if(physical || action.failures>=3){
       action.fired=true;
       const pip=document.getElementById(`pip-${action.id}`);
       if(pip)pip.classList.add('fired');
