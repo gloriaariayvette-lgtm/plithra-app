@@ -287,7 +287,8 @@ const S={
   planStatus:'unrequested', planError:'', screenshotInterval:null, interruptInterval:null, actionInterval:null,
   toneSignal:{intensity:0.5,clarity:0.7,stability:0.8},
   toneHistory:[], // [{intensity,clarity,stability,t}]
-  currentEdge:null, screenshotUrl:null
+  currentEdge:null, screenshotUrl:null,
+  pendingFrame:null // {b64, at} — a frame she just grabbed, waiting to ride her next turn to the frontier model
 };
 
 // ── FILM LOAD (LM Studio direct — no Velaris context needed) ──
@@ -448,6 +449,12 @@ async function takeScreenshot(){
       // and refresh its frame; avatar-scene imagery does not belong here.
       if(S.screenshotUrl)URL.revokeObjectURL(S.screenshotUrl);
       S.screenshotUrl=url;
+      // Hold the actual frame, not just Gemma's caption of it, so the very next thing
+      // she says rides this picture to the frontier model (server labels it as the TV).
+      try{
+        const b64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]);fr.onerror=rej;fr.readAsDataURL(blob)});
+        if(b64)S.pendingFrame={b64,at:Date.now()};
+      }catch(_){}
       document.getElementById('ssImg').src=url;
       document.getElementById('ssStamp').textContent=ts;
       document.getElementById('screenshotPanel').classList.remove('protected');
@@ -618,8 +625,14 @@ async function sendMessage(){
   S.chatHistory.push({role:'user',content:text});
   S.lastInterruption=Date.now();
   const elapsed=Math.floor((Date.now()-S.sessionStart)/60000);
+  // If she grabbed a frame moments ago, it rides THIS turn to the frontier model —
+  // mode 'speak' is forced so the picture reaches the speaking voice, not Gemma's look
+  // path (the server routes any image with no mode to 'look'). One turn, then it's spent.
+  let frame;
+  if(S.pendingFrame && (Date.now()-S.pendingFrame.at)<180000) frame=S.pendingFrame.b64;
+  S.pendingFrame=null;
   try{
-    const reply=await velarisChat(text,'',S.chatHistory.slice(0,-1),undefined,undefined,text);
+    const reply=await velarisChat(text,'',S.chatHistory.slice(0,-1),frame,frame?'speak':undefined,text);
     appendMsg(who.name,reply);
     S.chatHistory.push({role:'assistant',content:reply});
     if(who.name==='vintos') await speakOnPhone(reply).catch(e=>appendSticker('⚠','phone voice failed — '+e.message));
