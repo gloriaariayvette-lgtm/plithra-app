@@ -122,6 +122,11 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 .mic-btn.recording{background:rgba(201,123,110,0.3);border-color:var(--coral);color:var(--coral);animation:micPulse 1s ease-in-out infinite}
 .capture-btn{width:38px;height:38px;border-radius:50%;background:rgba(184,150,90,.12);border:1px solid rgba(184,150,90,.34);color:var(--gold);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
 .capture-btn:disabled{opacity:.38;cursor:wait}
+.cast-btn{width:38px;height:38px;border-radius:50%;background:rgba(74,136,136,.14);border:1px solid rgba(74,136,136,.4);color:var(--teal);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.cast-btn.on{background:rgba(74,136,136,.32);border-color:var(--teal);animation:micPulse 1.4s ease-in-out infinite}
+.room-controls{display:flex;align-items:center;gap:8px}
+.pause-btn{width:32px;height:32px;border-radius:50%;background:transparent;border:1px solid var(--border2);color:var(--text2);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.pause-btn.on{background:rgba(201,123,110,.2);border-color:var(--coral);color:var(--coral)}
 @keyframes micPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
 .end-btn{position:fixed;top:52px;right:16px;z-index:100;padding:6px 12px;background:transparent;border:1px solid var(--border2);border-radius:20px;color:var(--muted);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.15em;cursor:pointer;transition:all 0.2s}
 .end-btn:hover{border-color:var(--coral);color:var(--coral)}
@@ -222,7 +227,10 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
       <div class="film-now" id="nowPlaying">—</div>
       <div class="film-now-sub">now playing</div>
     </div>
-    <div class="tone-badge" id="toneBadge">—</div>
+    <div class="room-controls">
+      <button class="pause-btn" id="pauseBtn" onclick="togglePause()" title="Pause the night — freeze his eyes and hold his reactions">⏸</button>
+      <div class="tone-badge" id="toneBadge">—</div>
+    </div>
   </div>
   <div class="planned-strip" id="plannedStrip">
     <span class="p-label-s">planned</span>
@@ -237,6 +245,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 <div class="input-bar">
   <textarea class="chat-input" id="chatInput" placeholder="say something…" rows="1"
     onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+  <button class="cast-btn" id="castBtn" onclick="toggleCast()" aria-label="Cast my phone or computer screen into the room">📡</button>
   <button class="capture-btn" id="captureBtn" onclick="captureNow()" aria-label="Capture TV frame">📷</button>
   <button class="mic-btn" id="micBtn" onclick="toggleMic()">🎙</button>
   <button class="send-btn" onclick="sendMessage()">↑</button>
@@ -323,6 +332,7 @@ async function resumeSession(){
   takeScreenshot();
   S.interruptInterval=setInterval(considerInterruption,45000);
   S.actionInterval=setInterval(checkPlannedActions,15000);
+  watchForCast();
 }
 
 const BRAIN_SHORT={claude:'opus',sonnet:'sonnet',fable:'fable',grok:'grok',sol:'sol',local:'gemma'};
@@ -356,7 +366,8 @@ const S={
   toneSignal:{intensity:0.5,clarity:0.7,stability:0.8},
   toneHistory:[], // [{intensity,clarity,stability,t}]
   currentEdge:null, screenshotUrl:null,
-  pendingFrame:null // {b64, at} — a frame she just grabbed, waiting to ride her next turn to the frontier model
+  pendingFrame:null, // {b64, at} — a frame she just grabbed, waiting to ride her next turn to the frontier model
+  castStream:null, castTimer:null, casting:false, panePoll:null, castWatch:null, paused:false
 };
 
 // ── FILM LOAD (LM Studio direct — no Velaris context needed) ──
@@ -424,6 +435,7 @@ async function startRoom(){
   await Promise.allSettled([firstLook,firstVoice]);
   S.interruptInterval=setInterval(considerInterruption,45000);
   S.actionInterval=setInterval(checkPlannedActions,15000);
+  watchForCast();
 }
 
 function buildFilmContext(){
@@ -498,6 +510,89 @@ async function captureNow(){
   button.disabled=true;button.textContent='…';
   try{await takeScreenshot()}
   finally{button.disabled=false;button.textContent='📷'}
+}
+
+// ── CAST: mirror THIS device's screen into the room. The OS screen grab gets past a streaming
+//    app that blocks in-page screenshots, so his eyes and the capture button see the real film. ──
+async function toggleCast(){
+  if(S.casting){stopCast();appendSticker('📡','stopped casting');return}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getDisplayMedia){
+    appendSticker('⚠','this device can’t share its screen — cast from a computer browser');return}
+  try{
+    S.castStream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:2},audio:false});
+  }catch(e){appendSticker('⚠','screen share cancelled — '+e.message);return}
+  S.casting=true;
+  document.getElementById('castBtn').classList.add('on');
+  const vid=document.createElement('video');vid.muted=true;vid.srcObject=S.castStream;
+  await vid.play().catch(()=>{});
+  const cv=document.createElement('canvas');
+  S.castStream.getVideoTracks()[0].addEventListener('ended',()=>{stopCast();appendSticker('📡','screen share ended');});
+  const push=async()=>{
+    if(!S.casting||S.paused)return;
+    const w=vid.videoWidth,h=vid.videoHeight; if(!w||!h)return;
+    cv.width=Math.min(w,1280);cv.height=Math.round(cv.width*h/w);
+    cv.getContext('2d').drawImage(vid,0,0,cv.width,cv.height);
+    const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.72));
+    if(!blob)return;
+    try{await fetch(`${base()}/api/game/reelroom/cast`,{method:'POST',headers:{...auth(),'Content-Type':'image/jpeg'},body:blob})}catch(e){}
+  };
+  S.castTimer=setInterval(push,650);push();
+  startPanePoll();
+  appendSticker('📡','casting your screen into the room');
+}
+function stopCast(){
+  S.casting=false;
+  if(S.castTimer){clearInterval(S.castTimer);S.castTimer=null}
+  if(S.castStream){try{S.castStream.getTracks().forEach(t=>t.stop())}catch(e){}S.castStream=null}
+  const b=document.getElementById('castBtn');if(b)b.classList.remove('on');
+  stopPanePoll();
+}
+// The pane shows the live mirror by pulling the latest cast frame — works whether this device
+// is the source or is watching a cast from her other device.
+function startPanePoll(){
+  if(S.panePoll)return;
+  S.panePoll=setInterval(async()=>{
+    if(S.paused)return;
+    try{
+      const r=await fetch(`${base()}/api/game/reelroom/cast/frame`,{headers:auth()});
+      if(!r.ok)return;
+      const blob=await r.blob();const url=URL.createObjectURL(blob);
+      if(S.screenshotUrl)URL.revokeObjectURL(S.screenshotUrl);
+      S.screenshotUrl=url;document.getElementById('ssImg').src=url;
+      document.getElementById('ssStamp').textContent=fmtTime(Date.now()-(S.sessionStart||Date.now()));
+      document.getElementById('screenshotPanel').classList.add('on');
+    }catch(e){}
+  },1400);
+}
+function stopPanePoll(){if(S.panePoll){clearInterval(S.panePoll);S.panePoll=null}}
+// A non-casting device still shows a cast running on her other device.
+function watchForCast(){
+  if(S.castWatch)return;
+  S.castWatch=setInterval(async()=>{
+    if(S.casting)return; // we are the source; our own poll already runs
+    try{
+      const r=await fetch(`${base()}/api/game/reelroom/cast/status`,{headers:auth()});
+      const d=await r.json().catch(()=>({}));
+      if(d&&d.active)startPanePoll(); else stopPanePoll();
+    }catch(e){}
+  },5000);
+}
+function stopWatchForCast(){if(S.castWatch){clearInterval(S.castWatch);S.castWatch=null}}
+
+// ── PAUSE the night: freeze his eyes and hold his reactions. Nothing is captured while paused. ──
+function togglePause(){
+  S.paused=!S.paused;
+  const b=document.getElementById('pauseBtn');
+  b.classList.toggle('on',S.paused);b.textContent=S.paused?'▶':'⏸';
+  if(S.paused){
+    if(S.interruptInterval){clearInterval(S.interruptInterval);S.interruptInterval=null}
+    if(S.actionInterval){clearInterval(S.actionInterval);S.actionInterval=null}
+    appendSticker('⏸','paused — his eyes are closed and he is holding still');
+  }else{
+    if(!S.interruptInterval)S.interruptInterval=setInterval(considerInterruption,45000);
+    if(!S.actionInterval)S.actionInterval=setInterval(checkPlannedActions,15000);
+    appendSticker('▶','back on');
+  }
 }
 
 async function checkPlannedActions(){
@@ -896,6 +991,7 @@ async function endSession(){
   clearInterval(S.screenshotInterval);
   clearInterval(S.interruptInterval);
   clearInterval(S.actionInterval);
+  stopCast();stopWatchForCast();S.paused=false;
   try{
     const r=await fetch(`${base()}/api/game/reelroom/summary`,{
       method:'POST',
