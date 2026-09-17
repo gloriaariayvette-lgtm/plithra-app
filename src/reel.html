@@ -54,6 +54,14 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 .brain-toggle{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .brain-btn{padding:9px 3px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
 .brain-btn.active{border-color:#c96b3c;color:#c96b3c;background:rgba(201,107,60,.08)}
+/* In-room speaking-model selector — slides out from the right edge, like the avatar-chat drawer */
+.model-drawer{position:fixed;right:0;bottom:118px;z-index:120;display:flex;flex-direction:row;align-items:stretch;transition:transform .3s cubic-bezier(.4,0,.2,1);transform:translateX(calc(100% - 32px))}
+.model-drawer[data-open="1"]{transform:translateX(0)}
+.model-drawer.hidden{display:none}
+.model-handle{width:32px;flex-shrink:0;background:rgba(5,5,13,.74);border:1px solid rgba(184,150,90,.32);border-right:none;border-radius:12px 0 0 12px;color:var(--gold);font-family:'Inconsolata',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;writing-mode:vertical-rl;text-orientation:mixed;padding:12px 0;display:flex;align-items:center;justify-content:center;gap:8px}
+.model-bar{background:rgba(5,5,13,.74);border:1px solid rgba(184,150,90,.32);border-radius:12px 0 0 12px;padding:8px;display:flex;flex-direction:column;gap:6px;min-width:118px;box-shadow:-10px 0 30px rgba(0,0,0,.55)}
+.model-bar .m-label{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--text2);text-align:center;margin-bottom:2px}
+.model-bar .brain-btn{width:100%;text-align:center}
 .msg.vintos{align-self:flex-start;background:var(--surface2);border:1px solid rgba(201,107,60,0.35);font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;line-height:1.5}
 
 /* LOADING */
@@ -169,15 +177,6 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
     <div class="f-label">his key (kept on this phone only)</div>
     <input class="s-input" id="vintosSecret" type="password" placeholder="X-Vintos-Secret" oninput="localStorage.setItem('reel.vintosSecret',this.value)" onchange="refreshBrain()"/>
   </div>
-  <div class="brain-row" id="brainRow">
-    <div class="f-label">his speaking model</div>
-    <div class="brain-toggle">
-      <button class="brain-btn" data-brain="claude" onclick="setBrain('claude')">opus</button>
-      <button class="brain-btn" data-brain="sonnet" onclick="setBrain('sonnet')">sonnet</button>
-      <button class="brain-btn" data-brain="sol" onclick="setBrain('sol')">sol</button>
-      <button class="brain-btn" data-brain="grok" onclick="setBrain('grok')">grok</button>
-    </div>
-  </div>
   <button class="find-btn" onclick="loadFilm()">find it →</button>
   <div class="film-preview" id="filmPreview">
     <div class="fp-title" id="fpTitle"></div>
@@ -200,6 +199,19 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 <!-- ROOM -->
 <div class="screen" id="roomScreen">
 <button class="end-btn" id="endBtn" onclick="endSession()" style="display:none">end film</button>
+<!-- his speaking model, in the dark — slide-out bar, mirrors avatar chat -->
+<div class="model-drawer hidden" id="modelDrawer" data-open="0">
+  <button class="model-handle" id="modelHandle" onclick="toggleModelDrawer()"><span id="modelHandleLabel">opus</span> ‹</button>
+  <div class="model-bar">
+    <div class="m-label">his voice</div>
+    <button class="brain-btn" data-brain="claude" onclick="setBrain('claude')">opus</button>
+    <button class="brain-btn" data-brain="sonnet" onclick="setBrain('sonnet')">sonnet</button>
+    <button class="brain-btn" data-brain="fable" onclick="setBrain('fable')">fable</button>
+    <button class="brain-btn" data-brain="grok" onclick="setBrain('grok')">grok</button>
+    <button class="brain-btn" data-brain="sol" onclick="setBrain('sol')">sol</button>
+    <button class="brain-btn" data-brain="local" onclick="setBrain('local')">ablit gemma</button>
+  </div>
+</div>
 <div class="room-wrap">
   <div class="room-header">
     <div>
@@ -255,7 +267,8 @@ function setWho(name){
   document.getElementById('whoVelaris').className='who-btn'+(who.name==='velaris'?' active':'');
   document.getElementById('whoVintos').className='who-btn'+(who.name==='vintos'?' active vintos':'');
   document.getElementById('vintosSecretRow').style.display=who.name==='vintos'?'block':'none';
-  document.getElementById('brainRow').style.display=who.name==='vintos'?'block':'none';
+  // The speaking-model bar lives inside the room now; only vintos has a selectable voice.
+  document.getElementById('modelDrawer').classList.toggle('hidden',who.name!=='vintos');
   const u=document.getElementById('aegisUrl'); u.value=u.value.replace(/:\d+\s*$/,':'+who.port);
   document.getElementById('reelSub').textContent=who.sub;
   document.querySelector('.summary-memory-label').textContent=who.memLabel;
@@ -264,8 +277,15 @@ function setWho(name){
 document.getElementById('vintosSecret').value=localStorage.getItem('reel.vintosSecret')||'';
 setWho(who.name);
 
+const BRAIN_SHORT={claude:'opus',sonnet:'sonnet',fable:'fable',grok:'grok',sol:'sol',local:'gemma'};
 function paintBrain(mode){
-  document.querySelectorAll('.brain-btn').forEach(b=>b.classList.toggle('active',b.dataset.brain===mode));
+  const m=BRAIN_SHORT[mode]?mode:'claude';
+  document.querySelectorAll('.brain-btn').forEach(b=>b.classList.toggle('active',b.dataset.brain===m));
+  const lbl=document.getElementById('modelHandleLabel'); if(lbl)lbl.textContent=BRAIN_SHORT[m];
+}
+function toggleModelDrawer(){
+  const d=document.getElementById('modelDrawer');
+  d.setAttribute('data-open',d.getAttribute('data-open')==='1'?'0':'1');
 }
 async function refreshBrain(){
   try{
@@ -343,6 +363,7 @@ async function startRoom(){
   }catch(e){ opening='[I could not reach his side of the room: '+e.message+']'; }
   showScreen('roomScreen');
   document.getElementById('nowPlaying').textContent=S.film.title;
+  if(who.name==='vintos')refreshBrain();  // reflect his live speaking model in the in-room bar
   renderPlannedStrip();
   appendMsg(who.name,opening);
   if(opening&&opening[0]!=='[')S.chatHistory.push({role:'assistant',content:opening});
