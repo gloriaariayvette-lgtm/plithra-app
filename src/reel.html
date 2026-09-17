@@ -39,6 +39,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 .s-input{width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:11px;outline:none}
 .find-btn{width:100%;padding:10px;background:rgba(184,150,90,0.08);border:1px solid rgba(184,150,90,0.3);border-radius:8px;color:var(--gold);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.1em;cursor:pointer;transition:all 0.2s;margin-top:6px}
 .find-btn:hover{background:rgba(184,150,90,0.15)}
+.resume-banner{width:100%;padding:12px;background:rgba(120,104,160,.12);border:1px solid rgba(120,104,160,.4);border-radius:10px;color:var(--lavender);font-family:'Inconsolata',monospace;font-size:11px;letter-spacing:.06em;cursor:pointer;transition:all .2s;text-align:left;line-height:1.5}
+.resume-banner:hover{background:rgba(120,104,160,.2);border-color:var(--lavender)}
+.resume-banner b{color:var(--text);font-weight:500}
 .film-preview{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:none;animation:fadeUp 0.3s ease}
 .fp-title{font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;margin-bottom:4px}
 .fp-meta{font-size:10px;color:var(--text2);margin-bottom:8px}
@@ -158,6 +161,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
     <div class="reel-title">ReelRoom</div>
     <div class="reel-sub" id="reelSub">velaris & gloria — in the dark together</div>
   </div>
+  <button class="resume-banner" id="resumeBanner" onclick="resumeSession()" style="display:none"></button>
   <div>
     <div class="f-label">who is beside you</div>
     <div class="who-toggle">
@@ -273,9 +277,53 @@ function setWho(name){
   document.getElementById('reelSub').textContent=who.sub;
   document.querySelector('.summary-memory-label').textContent=who.memLabel;
   if(who.name==='vintos')refreshBrain();
+  checkResume();
 }
 document.getElementById('vintosSecret').value=localStorage.getItem('reel.vintosSecret')||'';
 setWho(who.name);
+
+// ── RESUME: the server keeps the live night until it has been idle an hour; offer it back ──
+async function checkResume(){
+  const banner=document.getElementById('resumeBanner');
+  banner.style.display='none';
+  try{
+    const r=await fetch(`${base()}/api/game/reelroom/resume`,{headers:auth()});
+    const d=await r.json().catch(()=>({}));
+    if(!d||!d.resumable||!(d.chat_history||[]).length)return;
+    const mins=Math.floor((d.elapsed_seconds||0)/60);
+    const idleM=Math.floor((d.idle_seconds||0)/60);
+    banner.innerHTML=`⟳ resume where you left off<br><b>${d.film_title||'your film'}</b> — ${d.chat_history.length} turns, ${mins}m in${idleM>0?` · paused ${idleM}m ago`:''}`;
+    banner.style.display='block';
+  }catch(e){/* no server / not signed in yet — just don't offer */}
+}
+async function resumeSession(){
+  let d;
+  try{
+    const r=await fetch(`${base()}/api/game/reelroom/resume`,{headers:auth()});
+    d=await jsonOrError(r);
+  }catch(e){appendSticker?.('⚠','could not reach the night — '+e.message);return}
+  if(!d||!d.resumable){document.getElementById('resumeBanner').style.display='none';return}
+  unlockPhoneAudio();
+  // Rehydrate the room from the live journal. Elapsed keeps counting from where it stopped.
+  S.film={title:d.film_title||'',year:d.film_year||''};
+  S.filmContext=`You are watching "${S.film.title}" with Gloria. You are picking this back up mid-film — the two of you were already in it.`;
+  S.chatHistory=(d.chat_history||[]).map(m=>({role:m.role,content:String(m.content||'')}));
+  S.sessionMap=(d.session_map||[]);
+  S.plannedActions=(d.planned_actions||[]).map(a=>({...a,firing:false}));
+  S.sessionStart=Date.now()-(d.elapsed_seconds||0)*1000;
+  S.lastInterruption=Date.now();
+  showScreen('roomScreen');
+  document.getElementById('nowPlaying').textContent=S.film.title||'—';
+  if(who.name==='vintos')refreshBrain();
+  renderPlannedStrip();
+  const log=document.getElementById('chatLog');log.innerHTML='';
+  S.chatHistory.forEach(m=>appendMsg(m.role==='user'?'gloria':who.name,m.content));
+  document.getElementById('endBtn').style.display='block';
+  updateToneSignal(0.5,0.7,0.8);
+  takeScreenshot();
+  S.interruptInterval=setInterval(considerInterruption,45000);
+  S.actionInterval=setInterval(checkPlannedActions,15000);
+}
 
 const BRAIN_SHORT={claude:'opus',sonnet:'sonnet',fable:'fable',grok:'grok',sol:'sol',local:'gemma'};
 function paintBrain(mode){
