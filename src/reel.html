@@ -109,6 +109,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 
 .mic-btn{width:38px;height:38px;border-radius:50%;background:rgba(120,104,160,0.2);border:1px solid rgba(120,104,160,0.4);color:var(--lavender);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0}
 .mic-btn.recording{background:rgba(201,123,110,0.3);border-color:var(--coral);color:var(--coral);animation:micPulse 1s ease-in-out infinite}
+.capture-btn{width:38px;height:38px;border-radius:50%;background:rgba(184,150,90,.12);border:1px solid rgba(184,150,90,.34);color:var(--gold);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.capture-btn:disabled{opacity:.38;cursor:wait}
 @keyframes micPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
 .end-btn{position:fixed;top:52px;right:16px;z-index:100;padding:6px 12px;background:transparent;border:1px solid var(--border2);border-radius:20px;color:var(--muted);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.15em;cursor:pointer;transition:all 0.2s}
 .end-btn:hover{border-color:var(--coral);color:var(--coral)}
@@ -219,6 +221,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 <div class="input-bar">
   <textarea class="chat-input" id="chatInput" placeholder="say something…" rows="1"
     onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+  <button class="capture-btn" id="captureBtn" onclick="captureNow()" aria-label="Capture TV frame">📷</button>
   <button class="mic-btn" id="micBtn" onclick="toggleMic()">🎙</button>
   <button class="send-btn" onclick="sendMessage()">↑</button>
 </div>
@@ -349,7 +352,6 @@ async function startRoom(){
     ? speakOnPhone(opening).catch(e=>appendSticker('⚠','phone voice failed — '+e.message))
     : Promise.resolve();
   await Promise.allSettled([firstLook,firstVoice]);
-  S.screenshotInterval=setInterval(periodicCheck,300000);
   S.interruptInterval=setInterval(considerInterruption,45000);
   S.actionInterval=setInterval(checkPlannedActions,15000);
 }
@@ -418,6 +420,14 @@ function renderPlannedStrip(){
 // ── PERIODIC CHECK ──
 async function periodicCheck(){
   await takeScreenshot();
+}
+
+async function captureNow(){
+  const button=document.getElementById('captureBtn');
+  if(button.disabled)return;
+  button.disabled=true;button.textContent='…';
+  try{await takeScreenshot()}
+  finally{button.disabled=false;button.textContent='📷'}
 }
 
 async function checkPlannedActions(){
