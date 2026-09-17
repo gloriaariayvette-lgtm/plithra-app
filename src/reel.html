@@ -84,6 +84,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 .screenshot-panel.on .ss-img{display:block}
 .ss-waiting{font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.25);text-align:center}
 .screenshot-panel.on .ss-waiting{display:none}
+.screenshot-panel.protected{background:radial-gradient(ellipse at 50% 38%,rgba(120,104,160,.18),#050509 72%);border-color:rgba(184,150,90,.35)}
+.screenshot-panel.protected .ss-img{display:none}
+.screenshot-panel.protected .ss-waiting{display:block;white-space:pre-line;color:rgba(200,195,188,.58);line-height:1.9;padding:30px}
 .ss-stamp{position:absolute;bottom:8px;right:10px;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.5);background:rgba(0,0,0,0.5);padding:2px 6px;border-radius:6px}
 .chat-log{padding:12px 16px 0;display:flex;flex-direction:column;gap:2px;flex:1}
 .action-sticker{align-self:center;display:inline-flex;align-items:center;gap:6px;background:rgba(120,104,160,0.12);border:1px solid rgba(120,104,160,0.25);border-radius:20px;padding:4px 12px;margin:6px 0;font-size:10px;letter-spacing:0.1em;color:var(--lavender);animation:stickerPop 0.3s cubic-bezier(0.34,1.56,0.64,1)}
@@ -437,6 +440,7 @@ async function takeScreenshot(){
       S.screenshotUrl=url;
       document.getElementById('ssImg').src=url;
       document.getElementById('ssStamp').textContent=ts;
+      document.getElementById('screenshotPanel').classList.remove('protected');
       document.getElementById('screenshotPanel').classList.add('on');
       // Tonal delta from screenshot via Velaris
       await analyzeScreenshotTone(url,ts);
@@ -444,7 +448,15 @@ async function takeScreenshot(){
     }
     const d=await resp.json().catch(()=>({}));
     throw new Error(d.detail||`screen returned ${resp.status}`);
-  }catch(e){appendSticker('⚠','no TV visual — '+e.message);return false}
+  }catch(e){
+    const panel=document.getElementById('screenshotPanel');
+    if(S.screenshotUrl)URL.revokeObjectURL(S.screenshotUrl);S.screenshotUrl=null;
+    document.getElementById('ssImg').removeAttribute('src');
+    panel.classList.remove('on');panel.classList.add('protected');
+    document.getElementById('ssWaiting').textContent='THEATRE SCREEN\nTV visual temporarily unavailable';
+    document.getElementById('ssStamp').textContent=fmtTime(Date.now()-S.sessionStart);
+    appendSticker('⚠','no TV visual — '+e.message);return false
+  }
 }
 
 // ── TONAL DELTA SYSTEM ──
