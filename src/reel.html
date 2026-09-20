@@ -39,6 +39,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 .s-input{width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:11px;outline:none}
 .find-btn{width:100%;padding:10px;background:rgba(184,150,90,0.08);border:1px solid rgba(184,150,90,0.3);border-radius:8px;color:var(--gold);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.1em;cursor:pointer;transition:all 0.2s;margin-top:6px}
 .find-btn:hover{background:rgba(184,150,90,0.15)}
+.resume-banner{width:100%;padding:12px;background:rgba(120,104,160,.12);border:1px solid rgba(120,104,160,.4);border-radius:10px;color:var(--lavender);font-family:'Inconsolata',monospace;font-size:11px;letter-spacing:.06em;cursor:pointer;transition:all .2s;text-align:left;line-height:1.5}
+.resume-banner:hover{background:rgba(120,104,160,.2);border-color:var(--lavender)}
+.resume-banner b{color:var(--text);font-weight:500}
 .film-preview{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:none;animation:fadeUp 0.3s ease}
 .fp-title{font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;margin-bottom:4px}
 .fp-meta{font-size:10px;color:var(--text2);margin-bottom:8px}
@@ -54,6 +57,14 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 .brain-toggle{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .brain-btn{padding:9px 3px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-family:'Inconsolata',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
 .brain-btn.active{border-color:#c96b3c;color:#c96b3c;background:rgba(201,107,60,.08)}
+/* In-room speaking-model selector — slides out from the right edge, like the avatar-chat drawer */
+.model-drawer{position:fixed;right:0;bottom:118px;z-index:120;display:flex;flex-direction:row;align-items:stretch;transition:transform .3s cubic-bezier(.4,0,.2,1);transform:translateX(calc(100% - 32px))}
+.model-drawer[data-open="1"]{transform:translateX(0)}
+.model-drawer.hidden{display:none}
+.model-handle{width:32px;flex-shrink:0;background:rgba(5,5,13,.74);border:1px solid rgba(184,150,90,.32);border-right:none;border-radius:12px 0 0 12px;color:var(--gold);font-family:'Inconsolata',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;writing-mode:vertical-rl;text-orientation:mixed;padding:12px 0;display:flex;align-items:center;justify-content:center;gap:8px}
+.model-bar{background:rgba(5,5,13,.74);border:1px solid rgba(184,150,90,.32);border-radius:12px 0 0 12px;padding:8px;display:flex;flex-direction:column;gap:6px;min-width:118px;box-shadow:-10px 0 30px rgba(0,0,0,.55)}
+.model-bar .m-label{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--text2);text-align:center;margin-bottom:2px}
+.model-bar .brain-btn{width:100%;text-align:center}
 .msg.vintos{align-self:flex-start;background:var(--surface2);border:1px solid rgba(201,107,60,0.35);font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;line-height:1.5}
 
 /* LOADING */
@@ -84,6 +95,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 .screenshot-panel.on .ss-img{display:block}
 .ss-waiting{font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:rgba(255,255,255,.25);text-align:center}
 .screenshot-panel.on .ss-waiting{display:none}
+.screenshot-panel.protected{background:radial-gradient(ellipse at 50% 38%,rgba(120,104,160,.18),#050509 72%);border-color:rgba(184,150,90,.35)}
+.screenshot-panel.protected .ss-img{display:none}
+.screenshot-panel.protected .ss-waiting{display:block;white-space:pre-line;color:rgba(200,195,188,.58);line-height:1.9;padding:30px}
 .ss-stamp{position:absolute;bottom:8px;right:10px;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.5);background:rgba(0,0,0,0.5);padding:2px 6px;border-radius:6px}
 .chat-log{padding:12px 16px 0;display:flex;flex-direction:column;gap:2px;flex:1}
 .action-sticker{align-self:center;display:inline-flex;align-items:center;gap:6px;background:rgba(120,104,160,0.12);border:1px solid rgba(120,104,160,0.25);border-radius:20px;padding:4px 12px;margin:6px 0;font-size:10px;letter-spacing:0.1em;color:var(--lavender);animation:stickerPop 0.3s cubic-bezier(0.34,1.56,0.64,1)}
@@ -106,6 +120,13 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 
 .mic-btn{width:38px;height:38px;border-radius:50%;background:rgba(120,104,160,0.2);border:1px solid rgba(120,104,160,0.4);color:var(--lavender);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0}
 .mic-btn.recording{background:rgba(201,123,110,0.3);border-color:var(--coral);color:var(--coral);animation:micPulse 1s ease-in-out infinite}
+.capture-btn{width:38px;height:38px;border-radius:50%;background:rgba(184,150,90,.12);border:1px solid rgba(184,150,90,.34);color:var(--gold);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.capture-btn:disabled{opacity:.38;cursor:wait}
+.cast-btn{width:38px;height:38px;border-radius:50%;background:rgba(74,136,136,.14);border:1px solid rgba(74,136,136,.4);color:var(--teal);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.cast-btn.on{background:rgba(74,136,136,.32);border-color:var(--teal);animation:micPulse 1.4s ease-in-out infinite}
+.room-controls{display:flex;align-items:center;gap:8px}
+.pause-btn{width:32px;height:32px;border-radius:50%;background:transparent;border:1px solid var(--border2);color:var(--text2);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.pause-btn.on{background:rgba(201,123,110,.2);border-color:var(--coral);color:var(--coral)}
 @keyframes micPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
 .end-btn{position:fixed;top:52px;right:16px;z-index:100;padding:6px 12px;background:transparent;border:1px solid var(--border2);border-radius:20px;color:var(--muted);font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.15em;cursor:pointer;transition:all 0.2s}
 .end-btn:hover{border-color:var(--coral);color:var(--coral)}
@@ -145,6 +166,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
     <div class="reel-title">ReelRoom</div>
     <div class="reel-sub" id="reelSub">velaris & gloria — in the dark together</div>
   </div>
+  <button class="resume-banner" id="resumeBanner" onclick="resumeSession()" style="display:none"></button>
   <div>
     <div class="f-label">who is beside you</div>
     <div class="who-toggle">
@@ -163,15 +185,6 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
   <div id="vintosSecretRow" style="display:none">
     <div class="f-label">his key (kept on this phone only)</div>
     <input class="s-input" id="vintosSecret" type="password" placeholder="X-Vintos-Secret" oninput="localStorage.setItem('reel.vintosSecret',this.value)" onchange="refreshBrain()"/>
-  </div>
-  <div class="brain-row" id="brainRow">
-    <div class="f-label">his speaking model</div>
-    <div class="brain-toggle">
-      <button class="brain-btn" data-brain="claude" onclick="setBrain('claude')">opus</button>
-      <button class="brain-btn" data-brain="sonnet" onclick="setBrain('sonnet')">sonnet</button>
-      <button class="brain-btn" data-brain="sol" onclick="setBrain('sol')">sol</button>
-      <button class="brain-btn" data-brain="grok" onclick="setBrain('grok')">grok</button>
-    </div>
   </div>
   <button class="find-btn" onclick="loadFilm()">find it →</button>
   <div class="film-preview" id="filmPreview">
@@ -195,13 +208,29 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 <!-- ROOM -->
 <div class="screen" id="roomScreen">
 <button class="end-btn" id="endBtn" onclick="endSession()" style="display:none">end film</button>
+<!-- his speaking model, in the dark — slide-out bar, mirrors avatar chat -->
+<div class="model-drawer hidden" id="modelDrawer" data-open="0">
+  <button class="model-handle" id="modelHandle" onclick="toggleModelDrawer()"><span id="modelHandleLabel">opus</span> ‹</button>
+  <div class="model-bar">
+    <div class="m-label">his voice</div>
+    <button class="brain-btn" data-brain="claude" onclick="setBrain('claude')">opus</button>
+    <button class="brain-btn" data-brain="sonnet" onclick="setBrain('sonnet')">sonnet</button>
+    <button class="brain-btn" data-brain="fable" onclick="setBrain('fable')">fable</button>
+    <button class="brain-btn" data-brain="grok" onclick="setBrain('grok')">grok</button>
+    <button class="brain-btn" data-brain="sol" onclick="setBrain('sol')">sol</button>
+    <button class="brain-btn" data-brain="local" onclick="setBrain('local')">ablit gemma</button>
+  </div>
+</div>
 <div class="room-wrap">
   <div class="room-header">
     <div>
       <div class="film-now" id="nowPlaying">—</div>
       <div class="film-now-sub">now playing</div>
     </div>
-    <div class="tone-badge" id="toneBadge">—</div>
+    <div class="room-controls">
+      <button class="pause-btn" id="pauseBtn" onclick="togglePause()" title="Pause the night — freeze his eyes and hold his reactions">⏸</button>
+      <div class="tone-badge" id="toneBadge">—</div>
+    </div>
   </div>
   <div class="planned-strip" id="plannedStrip">
     <span class="p-label-s">planned</span>
@@ -216,6 +245,8 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 <div class="input-bar">
   <textarea class="chat-input" id="chatInput" placeholder="say something…" rows="1"
     onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+  <button class="cast-btn" id="castBtn" onclick="toggleCast()" aria-label="Cast my phone or computer screen into the room">📡</button>
+  <button class="capture-btn" id="captureBtn" onclick="captureNow()" aria-label="Capture TV frame">📷</button>
   <button class="mic-btn" id="micBtn" onclick="toggleMic()">🎙</button>
   <button class="send-btn" onclick="sendMessage()">↑</button>
 </div>
@@ -249,17 +280,70 @@ function setWho(name){
   document.getElementById('whoVelaris').className='who-btn'+(who.name==='velaris'?' active':'');
   document.getElementById('whoVintos').className='who-btn'+(who.name==='vintos'?' active vintos':'');
   document.getElementById('vintosSecretRow').style.display=who.name==='vintos'?'block':'none';
-  document.getElementById('brainRow').style.display=who.name==='vintos'?'block':'none';
+  // The speaking-model bar lives inside the room now; only vintos has a selectable voice.
+  document.getElementById('modelDrawer').classList.toggle('hidden',who.name!=='vintos');
   const u=document.getElementById('aegisUrl'); u.value=u.value.replace(/:\d+\s*$/,':'+who.port);
   document.getElementById('reelSub').textContent=who.sub;
   document.querySelector('.summary-memory-label').textContent=who.memLabel;
   if(who.name==='vintos')refreshBrain();
+  checkResume();
 }
 document.getElementById('vintosSecret').value=localStorage.getItem('reel.vintosSecret')||'';
 setWho(who.name);
 
+// ── RESUME: the server keeps the live night until it has been idle an hour; offer it back ──
+async function checkResume(){
+  const banner=document.getElementById('resumeBanner');
+  banner.style.display='none';
+  try{
+    const r=await fetch(`${base()}/api/game/reelroom/resume`,{headers:auth()});
+    const d=await r.json().catch(()=>({}));
+    if(!d||!d.resumable||!(d.chat_history||[]).length)return;
+    const mins=Math.floor((d.elapsed_seconds||0)/60);
+    const idleM=Math.floor((d.idle_seconds||0)/60);
+    banner.innerHTML=`⟳ resume where you left off<br><b>${d.film_title||'your film'}</b> — ${d.chat_history.length} turns, ${mins}m in${idleM>0?` · paused ${idleM}m ago`:''}`;
+    banner.style.display='block';
+  }catch(e){/* no server / not signed in yet — just don't offer */}
+}
+async function resumeSession(){
+  let d;
+  try{
+    const r=await fetch(`${base()}/api/game/reelroom/resume`,{headers:auth()});
+    d=await jsonOrError(r);
+  }catch(e){appendSticker?.('⚠','could not reach the night — '+e.message);return}
+  if(!d||!d.resumable){document.getElementById('resumeBanner').style.display='none';return}
+  unlockPhoneAudio();
+  // Rehydrate the room from the live journal. Elapsed keeps counting from where it stopped.
+  S.film={title:d.film_title||'',year:d.film_year||''};
+  S.filmContext=`You are watching "${S.film.title}" with Gloria. You are picking this back up mid-film — the two of you were already in it.`;
+  S.chatHistory=(d.chat_history||[]).map(m=>({role:m.role,content:String(m.content||'')}));
+  S.sessionMap=(d.session_map||[]);
+  S.plannedActions=(d.planned_actions||[]).map(a=>({...a,firing:false}));
+  S.sessionStart=Date.now()-(d.elapsed_seconds||0)*1000;
+  S.lastInterruption=Date.now();
+  showScreen('roomScreen');
+  document.getElementById('nowPlaying').textContent=S.film.title||'—';
+  if(who.name==='vintos')refreshBrain();
+  renderPlannedStrip();
+  const log=document.getElementById('chatLog');log.innerHTML='';
+  S.chatHistory.forEach(m=>appendMsg(m.role==='user'?'gloria':who.name,m.content));
+  document.getElementById('endBtn').style.display='block';
+  updateToneSignal(0.5,0.7,0.8);
+  takeScreenshot();
+  S.interruptInterval=setInterval(considerInterruption,45000);
+  S.actionInterval=setInterval(checkPlannedActions,15000);
+  watchForCast();
+}
+
+const BRAIN_SHORT={claude:'opus',sonnet:'sonnet',fable:'fable',grok:'grok',sol:'sol',local:'gemma'};
 function paintBrain(mode){
-  document.querySelectorAll('.brain-btn').forEach(b=>b.classList.toggle('active',b.dataset.brain===mode));
+  const m=BRAIN_SHORT[mode]?mode:'claude';
+  document.querySelectorAll('.brain-btn').forEach(b=>b.classList.toggle('active',b.dataset.brain===m));
+  const lbl=document.getElementById('modelHandleLabel'); if(lbl)lbl.textContent=BRAIN_SHORT[m];
+}
+function toggleModelDrawer(){
+  const d=document.getElementById('modelDrawer');
+  d.setAttribute('data-open',d.getAttribute('data-open')==='1'?'0':'1');
 }
 async function refreshBrain(){
   try{
@@ -281,7 +365,9 @@ const S={
   planStatus:'unrequested', planError:'', screenshotInterval:null, interruptInterval:null, actionInterval:null,
   toneSignal:{intensity:0.5,clarity:0.7,stability:0.8},
   toneHistory:[], // [{intensity,clarity,stability,t}]
-  currentEdge:null, screenshotUrl:null
+  currentEdge:null, screenshotUrl:null,
+  pendingFrame:null, // {b64, at} — a frame she just grabbed, waiting to ride her next turn to the frontier model
+  castStream:null, castTimer:null, casting:false, panePoll:null, castWatch:null, paused:false
 };
 
 // ── FILM LOAD (LM Studio direct — no Velaris context needed) ──
@@ -336,6 +422,7 @@ async function startRoom(){
   }catch(e){ opening='[I could not reach his side of the room: '+e.message+']'; }
   showScreen('roomScreen');
   document.getElementById('nowPlaying').textContent=S.film.title;
+  if(who.name==='vintos')refreshBrain();  // reflect his live speaking model in the in-room bar
   renderPlannedStrip();
   appendMsg(who.name,opening);
   if(opening&&opening[0]!=='[')S.chatHistory.push({role:'assistant',content:opening});
@@ -346,9 +433,9 @@ async function startRoom(){
     ? speakOnPhone(opening).catch(e=>appendSticker('⚠','phone voice failed — '+e.message))
     : Promise.resolve();
   await Promise.allSettled([firstLook,firstVoice]);
-  S.screenshotInterval=setInterval(periodicCheck,300000);
   S.interruptInterval=setInterval(considerInterruption,45000);
   S.actionInterval=setInterval(checkPlannedActions,15000);
+  watchForCast();
 }
 
 function buildFilmContext(){
@@ -417,6 +504,97 @@ async function periodicCheck(){
   await takeScreenshot();
 }
 
+async function captureNow(){
+  const button=document.getElementById('captureBtn');
+  if(button.disabled)return;
+  button.disabled=true;button.textContent='…';
+  try{await takeScreenshot()}
+  finally{button.disabled=false;button.textContent='📷'}
+}
+
+// ── CAST: mirror THIS device's screen into the room. The OS screen grab gets past a streaming
+//    app that blocks in-page screenshots, so his eyes and the capture button see the real film. ──
+async function toggleCast(){
+  if(S.casting){stopCast();appendSticker('📡','stopped casting');return}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getDisplayMedia){
+    appendSticker('⚠','this device can’t share its screen — cast from a computer browser');return}
+  try{
+    S.castStream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:2},audio:false});
+  }catch(e){appendSticker('⚠','screen share cancelled — '+e.message);return}
+  S.casting=true;
+  document.getElementById('castBtn').classList.add('on');
+  const vid=document.createElement('video');vid.muted=true;vid.srcObject=S.castStream;
+  await vid.play().catch(()=>{});
+  const cv=document.createElement('canvas');
+  S.castStream.getVideoTracks()[0].addEventListener('ended',()=>{stopCast();appendSticker('📡','screen share ended');});
+  const push=async()=>{
+    if(!S.casting||S.paused)return;
+    const w=vid.videoWidth,h=vid.videoHeight; if(!w||!h)return;
+    cv.width=Math.min(w,1280);cv.height=Math.round(cv.width*h/w);
+    cv.getContext('2d').drawImage(vid,0,0,cv.width,cv.height);
+    const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.72));
+    if(!blob)return;
+    try{await fetch(`${base()}/api/game/reelroom/cast`,{method:'POST',headers:{...auth(),'Content-Type':'image/jpeg'},body:blob})}catch(e){}
+  };
+  S.castTimer=setInterval(push,650);push();
+  startPanePoll();
+  appendSticker('📡','casting your screen into the room');
+}
+function stopCast(){
+  S.casting=false;
+  if(S.castTimer){clearInterval(S.castTimer);S.castTimer=null}
+  if(S.castStream){try{S.castStream.getTracks().forEach(t=>t.stop())}catch(e){}S.castStream=null}
+  const b=document.getElementById('castBtn');if(b)b.classList.remove('on');
+  stopPanePoll();
+}
+// The pane shows the live mirror by pulling the latest cast frame — works whether this device
+// is the source or is watching a cast from her other device.
+function startPanePoll(){
+  if(S.panePoll)return;
+  S.panePoll=setInterval(async()=>{
+    if(S.paused)return;
+    try{
+      const r=await fetch(`${base()}/api/game/reelroom/cast/frame`,{headers:auth()});
+      if(!r.ok)return;
+      const blob=await r.blob();const url=URL.createObjectURL(blob);
+      if(S.screenshotUrl)URL.revokeObjectURL(S.screenshotUrl);
+      S.screenshotUrl=url;document.getElementById('ssImg').src=url;
+      document.getElementById('ssStamp').textContent=fmtTime(Date.now()-(S.sessionStart||Date.now()));
+      document.getElementById('screenshotPanel').classList.add('on');
+    }catch(e){}
+  },1400);
+}
+function stopPanePoll(){if(S.panePoll){clearInterval(S.panePoll);S.panePoll=null}}
+// A non-casting device still shows a cast running on her other device.
+function watchForCast(){
+  if(S.castWatch)return;
+  S.castWatch=setInterval(async()=>{
+    if(S.casting)return; // we are the source; our own poll already runs
+    try{
+      const r=await fetch(`${base()}/api/game/reelroom/cast/status`,{headers:auth()});
+      const d=await r.json().catch(()=>({}));
+      if(d&&d.active)startPanePoll(); else stopPanePoll();
+    }catch(e){}
+  },5000);
+}
+function stopWatchForCast(){if(S.castWatch){clearInterval(S.castWatch);S.castWatch=null}}
+
+// ── PAUSE the night: freeze his eyes and hold his reactions. Nothing is captured while paused. ──
+function togglePause(){
+  S.paused=!S.paused;
+  const b=document.getElementById('pauseBtn');
+  b.classList.toggle('on',S.paused);b.textContent=S.paused?'▶':'⏸';
+  if(S.paused){
+    if(S.interruptInterval){clearInterval(S.interruptInterval);S.interruptInterval=null}
+    if(S.actionInterval){clearInterval(S.actionInterval);S.actionInterval=null}
+    appendSticker('⏸','paused — his eyes are closed and he is holding still');
+  }else{
+    if(!S.interruptInterval)S.interruptInterval=setInterval(considerInterruption,45000);
+    if(!S.actionInterval)S.actionInterval=setInterval(checkPlannedActions,15000);
+    appendSticker('▶','back on');
+  }
+}
+
 async function checkPlannedActions(){
   if(!S.sessionStart)return;
   const elapsed=Math.floor((Date.now()-S.sessionStart)/60000);
@@ -461,8 +639,15 @@ async function takeScreenshot(){
       // and refresh its frame; avatar-scene imagery does not belong here.
       if(S.screenshotUrl)URL.revokeObjectURL(S.screenshotUrl);
       S.screenshotUrl=url;
+      // Hold the actual frame, not just Gemma's caption of it, so the very next thing
+      // she says rides this picture to the frontier model (server labels it as the TV).
+      try{
+        const b64=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]);fr.onerror=rej;fr.readAsDataURL(blob)});
+        if(b64)S.pendingFrame={b64,at:Date.now()};
+      }catch(_){}
       document.getElementById('ssImg').src=url;
       document.getElementById('ssStamp').textContent=ts;
+      document.getElementById('screenshotPanel').classList.remove('protected');
       document.getElementById('screenshotPanel').classList.add('on');
       // Tonal delta from screenshot via Velaris
       await analyzeScreenshotTone(url,ts);
@@ -470,7 +655,15 @@ async function takeScreenshot(){
     }
     const d=await resp.json().catch(()=>({}));
     throw new Error(d.detail||`screen returned ${resp.status}`);
-  }catch(e){appendSticker('⚠','no TV visual — '+e.message);return false}
+  }catch(e){
+    const panel=document.getElementById('screenshotPanel');
+    if(S.screenshotUrl)URL.revokeObjectURL(S.screenshotUrl);S.screenshotUrl=null;
+    document.getElementById('ssImg').removeAttribute('src');
+    panel.classList.remove('on');panel.classList.add('protected');
+    document.getElementById('ssWaiting').textContent='THEATRE SCREEN\nTV visual temporarily unavailable';
+    document.getElementById('ssStamp').textContent=fmtTime(Date.now()-S.sessionStart);
+    appendSticker('⚠','no TV visual — '+e.message);return false
+  }
 }
 
 // ── TONAL DELTA SYSTEM ──
@@ -634,9 +827,14 @@ async function sendMessage(){
   S.chatHistory.push({role:'user',content:text});
   S.lastInterruption=Date.now();
   const elapsed=Math.floor((Date.now()-S.sessionStart)/60000);
+  // If she grabbed a frame moments ago, it rides THIS turn to the frontier model —
+  // mode 'speak' is forced so the picture reaches the speaking voice, not Gemma's look
+  // path (the server routes any image with no mode to 'look'). One turn, then it's spent.
+  let frame;
+  if(S.pendingFrame && (Date.now()-S.pendingFrame.at)<180000) frame=S.pendingFrame.b64;
+  S.pendingFrame=null;
   try{
-    const frame=await grabFrame();
-    const reply=await velarisChat(text,'',S.chatHistory.slice(0,-1),frame||undefined,undefined,text);
+    const reply=await velarisChat(text,'',S.chatHistory.slice(0,-1),frame,frame?'speak':undefined,text);
     appendMsg(who.name,reply);
     S.chatHistory.push({role:'assistant',content:reply});
     if(who.name==='vintos') await speakOnPhone(reply).catch(e=>appendSticker('⚠','phone voice failed — '+e.message));
@@ -831,6 +1029,7 @@ async function endSession(){
   clearInterval(S.screenshotInterval);
   clearInterval(S.interruptInterval);
   clearInterval(S.actionInterval);
+  stopCast();stopWatchForCast();S.paused=false;
   try{
     const r=await fetch(`${base()}/api/game/reelroom/summary`,{
       method:'POST',
