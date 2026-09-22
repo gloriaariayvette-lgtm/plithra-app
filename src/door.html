@@ -168,14 +168,15 @@ function sendTyped(){
 }
 
 function label(who){
-  return {visitor:'at the door',velaris:'velaris',vintos:'vintos',gloria:'you'}[who]||who;
+  return {visitor:'at the door',velaris:'vintos',vintos:'vintos',gloria:'you'}[who]||who;
 }
 
 function addTurn(l){
   const feed=document.getElementById('feed');
   if(empty){ feed.innerHTML=''; empty=false; }
   const d=document.createElement('div'); d.className='turn';
-  const w=document.createElement('div'); w.className='t-who '+l.who; w.textContent=label(l.who);
+  const who=l.who==='velaris'?'vintos':l.who; // compatibility for older saved transcripts
+  const w=document.createElement('div'); w.className='t-who '+who; w.textContent=label(who);
   const t=document.createElement('div'); t.className='t-text'; t.textContent=l.text;
   d.appendChild(w); d.appendChild(t); if(l.photo){const im=document.createElement('img');im.className='t-photo';im.src=BASE+l.photo;im.loading='lazy';d.appendChild(im);} feed.appendChild(d);
   while(feed.children.length>10) feed.removeChild(feed.firstChild);
