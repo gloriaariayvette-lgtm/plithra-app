@@ -33,6 +33,12 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 .reel-title{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:300;letter-spacing:0.2em}
 .reel-sub{font-size:9px;letter-spacing:0.25em;color:var(--muted);text-transform:uppercase;margin-top:4px}
 .f-label{font-size:9px;letter-spacing:0.22em;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+.mail-sugg{display:none;margin-top:10px}
+.mail-sugg .f-label{margin-bottom:6px}
+.ms-item{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;margin-bottom:6px;color:var(--text);cursor:pointer;font-family:inherit}
+.ms-item:hover,.ms-item:focus{border-color:var(--gold);outline:none}
+.ms-title{font-family:'Cormorant Garamond',serif;font-size:16px;font-style:italic}
+.ms-from{font-family:'Inconsolata',monospace;font-size:10px;letter-spacing:0.06em;color:var(--muted);margin-top:3px;overflow-wrap:anywhere}
 .film-input{width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;color:var(--text);font-family:'Cormorant Garamond',serif;font-size:17px;font-style:italic;outline:none;transition:border-color 0.2s}
 .film-input:focus{border-color:var(--gold)}
 .film-input::placeholder{color:var(--muted)}
@@ -160,6 +166,10 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
   <div>
     <div class="f-label">the film</div>
     <input class="film-input" id="filmInput" placeholder="what are we watching…"/>
+    <div class="mail-sugg" id="mailSugg">
+      <div class="f-label">suggested in his mail</div>
+      <div id="mailSuggList"></div>
+    </div>
   </div>
   <div>
     <div class="f-label">aegis</div>
@@ -167,7 +177,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
   </div>
   <div id="vintosSecretRow" style="display:none">
     <div class="f-label">his key (kept on this phone only)</div>
-    <input class="s-input" id="vintosSecret" type="password" placeholder="X-Vintos-Secret" oninput="localStorage.setItem('reel.vintosSecret',this.value)" onchange="refreshBrain()"/>
+    <input class="s-input" id="vintosSecret" type="password" placeholder="X-Vintos-Secret" oninput="localStorage.setItem('reel.vintosSecret',this.value)" onchange="refreshBrain();loadMailSuggestions()"/>
   </div>
   <div class="brain-row" id="brainRow">
     <div class="f-label">his speaking model</div>
@@ -259,7 +269,29 @@ function setWho(name){
   const u=document.getElementById('aegisUrl'); u.value=u.value.replace(/:\d+\s*$/,':'+who.port);
   document.getElementById('reelSub').textContent=who.sub;
   document.querySelector('.summary-memory-label').textContent=who.memLabel;
-  if(who.name==='vintos')refreshBrain();
+  if(who.name==='vintos'){refreshBrain();loadMailSuggestions()}
+  else document.getElementById('mailSugg').style.display='none';
+}
+// Films, shows and videos suggested in his mail (Grok Bot's first), each with who sent it and the subject as they
+// wrote it. Tapping one only fills the film box: nothing is chosen or played from here.
+async function loadMailSuggestions(){
+  const box=document.getElementById('mailSugg'), list=document.getElementById('mailSuggList');
+  try{
+    const r=await fetch(`${base()}/api/game/reelroom/suggestions`,{headers:auth()});
+    const d=await r.json(); const items=(d&&d.suggestions)||[];
+    list.replaceChildren();
+    for(const it of items){
+      const b=document.createElement('button'); b.type='button'; b.className='ms-item';
+      const t=document.createElement('div'); t.className='ms-title';
+      t.textContent=it.title+(it.year?` (${it.year})`:'');
+      const f=document.createElement('div'); f.className='ms-from';
+      f.textContent='from '+it.sender+(it.also_from&&it.also_from.length?' (and '+it.also_from.join(', ')+')':'')+(it.subject?' · '+it.subject:'');
+      b.append(t,f);
+      b.onclick=()=>{document.getElementById('filmInput').value=it.title+(it.year?' '+it.year:'');document.getElementById('filmInput').focus()};
+      list.append(b);
+    }
+    box.style.display=items.length?'block':'none';
+  }catch(e){box.style.display='none'}
 }
 document.getElementById('vintosSecret').value=localStorage.getItem('reel.vintosSecret')||'';
 setWho(who.name);
