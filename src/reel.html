@@ -655,7 +655,29 @@ async function sendMessage(){
     appendMsg(who.name,reply);
     S.chatHistory.push({role:'assistant',content:reply});
     if(who.name==='vintos') await speakOnPhone(reply).catch(e=>appendSticker('⚠','phone voice failed — '+e.message));
-  }catch(e){appendSticker('⚠','his reply failed — '+e.message)}
+  }catch(e){
+    // The phone gave up on the connection while his server was still writing (16 October: "Load failed", and the
+    // reply was there in the log). A network failure is not his answer: fetch the reply his server kept.
+    const lost=(e instanceof TypeError)||/load failed|network|failed to fetch/i.test(e.message||'');
+    const reply=lost&&who.name==='vintos'?await recoverReply(text):'';
+    if(reply){
+      appendMsg(who.name,reply);
+      S.chatHistory.push({role:'assistant',content:reply});
+      await speakOnPhone(reply).catch(err=>appendSticker('⚠','phone voice failed — '+err.message));
+    }else appendSticker('⚠','his reply failed — '+e.message);
+  }
+}
+// His reply to `text`, read back from tonight's journal on his server: up to ~2 minutes, every 5 seconds.
+async function recoverReply(text){
+  for(let i=0;i<24;i++){
+    await new Promise(r=>setTimeout(r,5000));
+    try{
+      const r=await fetch(`${base()}/api/game/reelroom/last-reply?message=${encodeURIComponent(text)}`,{headers:auth()});
+      const d=await r.json();
+      if(d&&d.found&&d.reply)return d.reply;
+    }catch(_){}
+  }
+  return '';
 }
 
 function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}}
