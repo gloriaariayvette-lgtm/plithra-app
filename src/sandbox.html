@@ -9,7 +9,7 @@
 :root{--bg:#07070e;--surface:#11111c;--surface2:#171724;--border:#252535;--border2:#2e2e45;--coral:#c97b6e;--gold:#b8965a;--lavender:#8878b0;--teal:#5a9898;--text:#cec9c2;--text2:#9993a8;--muted:#5a566a;--ok:#5a9878;--warn:#b8965a;--err:#c97b6e}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;min-height:100vh}
-.app{max-width:460px;margin:0 auto;padding:16px 16px 40px;min-height:100vh}
+.app{max-width:900px;margin:0 auto;padding:16px 16px 40px;min-height:100vh}
 .top{display:flex;align-items:center;gap:12px;margin-bottom:14px}
 .back{color:var(--muted);text-decoration:none;font-size:20px;padding:4px 8px}
 .title{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:300;letter-spacing:0.14em;flex:1}
@@ -18,49 +18,74 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 .dot.busy{background:var(--warn);box-shadow:0 0 8px var(--warn);animation:pulse 1s infinite}
 @keyframes pulse{50%{opacity:.4}}
 
-/* layers diagram */
-.layers{position:relative;margin:4px 0 16px;padding:0}
-.layer{border:1px solid var(--border);border-radius:12px;padding:9px 12px 9px 14px;position:relative;background:var(--surface)}
-.layer + .layer-wrap{margin-top:-1px}
-.layer-wrap{padding:8px 8px 0}
-.layer-name{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text2)}
-.layer-sub{font-size:10px;color:var(--muted);margin-top:1px}
-.layer.worm{border-color:var(--teal);background:var(--surface2)}
-.layer.worm .layer-name{color:var(--teal)}
-.wall{position:absolute;right:10px;top:9px;font-size:9px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
-.wall.touched{color:var(--err);text-shadow:0 0 8px var(--err)}
-.wall.open{color:var(--ok)}
+/* mode toggle */
+.mode{display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:12px}
+.mode button{flex:1;background:transparent;border:none;color:var(--text2);font-family:inherit;font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:9px;cursor:pointer;border-radius:7px}
+.mode button.on{background:var(--teal);color:#07070e;font-weight:500}
 
-/* prompt */
-.prompt{display:flex;gap:8px;margin-bottom:8px}
-textarea{flex:1;background:var(--surface);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:inherit;font-size:14px;padding:11px;resize:none;min-height:46px}
-textarea:focus{outline:none;border-color:var(--teal)}
-.send{background:var(--teal);color:#07070e;border:none;border-radius:10px;padding:0 18px;font-family:inherit;font-weight:500;font-size:14px;letter-spacing:.05em;cursor:pointer}
-.send:disabled{opacity:.4}
-.controls{display:flex;gap:8px;margin-bottom:16px}
-.ctl{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:9px;color:var(--text2);font-family:inherit;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:9px;cursor:pointer}
-.ctl:active{background:var(--surface2)}
-.ctl.stop{color:var(--err);border-color:#3a2530}
+/* room box */
+.room{background:var(--surface);border:1px solid var(--border);border-left:2px solid var(--lavender);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.room .lbl{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--text2);margin-bottom:5px;display:flex;justify-content:space-between}
+.room .lbl .save{color:var(--lavender);cursor:pointer;letter-spacing:.1em}
+.room textarea{width:100%;background:transparent;border:none;color:var(--text);font-family:inherit;font-size:13px;resize:none;min-height:32px}
+.room textarea:focus{outline:none}
 
-/* answer */
-.answer{background:var(--surface);border:1px solid var(--border);border-left:2px solid var(--teal);border-radius:10px;padding:13px 15px;margin-bottom:16px;font-size:14px;line-height:1.65;white-space:pre-wrap;min-height:40px;color:var(--text)}
+/* turn selector */
+.turn{display:flex;gap:10px;align-items:center;margin-bottom:12px;font-size:12px;color:var(--text2);letter-spacing:.06em}
+.turn label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.turn input[type=number]{width:60px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;padding:4px 6px}
+.turn input[type=radio]{accent-color:var(--teal)}
+
+/* slot */
+.slots{display:grid;grid-template-columns:1fr;gap:12px}
+.slots.two{grid-template-columns:1fr 1fr}
+@media (max-width:640px){.slots.two{grid-template-columns:1fr}}
+.slot{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;border-top:2px solid var(--border2)}
+.slot.a{border-top-color:var(--teal)}
+.slot.b{border-top-color:var(--gold)}
+.slot-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.slot-name{font-family:'Cormorant Garamond',serif;font-size:18px;letter-spacing:.15em;flex:1}
+.slot .state{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.slot .state.running{color:var(--warn)}
+.slot .state.finished{color:var(--ok)}
+.slot .state.error{color:var(--err)}
+
+.self{margin-bottom:8px}
+.self summary{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--text2);cursor:pointer;padding:3px 0}
+.self textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:12px;padding:7px 9px;resize:none;min-height:50px;margin-top:5px}
+.self .save{color:var(--lavender);font-size:10px;letter-spacing:.1em;cursor:pointer;margin-top:4px;display:inline-block}
+
+.prompt{display:flex;gap:6px;margin-bottom:8px}
+.prompt textarea{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:9px;resize:none;min-height:40px}
+.prompt textarea:focus{outline:none;border-color:var(--teal)}
+.prompt button{background:var(--teal);color:#07070e;border:none;border-radius:8px;padding:0 14px;font-family:inherit;font-weight:500;font-size:12px;letter-spacing:.05em;cursor:pointer}
+.prompt button:disabled{opacity:.4}
+.slot.b .prompt button{background:var(--gold)}
+.stopbtn{background:transparent !important;color:var(--err) !important;border:1px solid #3a2530 !important}
+
+.answer{background:var(--surface2);border:1px solid var(--border);border-left:2px solid var(--teal);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;line-height:1.55;white-space:pre-wrap;min-height:30px}
+.slot.b .answer{border-left-color:var(--gold)}
 .answer.empty{color:var(--muted);font-style:italic}
 
-.section-h{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0 2px 8px}
-/* tool stream */
-.stream{display:flex;flex-direction:column;gap:7px}
-.ev{border:1px solid var(--border);border-radius:9px;padding:8px 11px;background:var(--surface);font-size:12px;line-height:1.5}
-.ev .k{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;display:flex;justify-content:space-between}
+.sh{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:8px 0 5px}
+.stream{display:flex;flex-direction:column;gap:5px;max-height:240px;overflow-y:auto}
+.ev{border:1px solid var(--border);border-radius:7px;padding:6px 9px;background:var(--surface2);font-size:11px;line-height:1.4}
+.ev .k{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:2px;display:flex;justify-content:space-between}
 .ev.tool{border-left:2px solid var(--gold)}
 .ev.tool .k{color:var(--gold)}
 .ev.result{border-left:2px solid var(--teal)}
-.ev.out .k{color:var(--lavender)}
 .ev.err{border-left:2px solid var(--err)}
 .ev.err .k{color:var(--err)}
-.ev code{color:var(--text);word-break:break-word;white-space:pre-wrap;display:block}
-.ev .res{color:var(--text2);word-break:break-word;white-space:pre-wrap}
-.empty-note{color:var(--muted);font-size:12px;font-style:italic;padding:6px 2px}
-.err-banner{background:#2a1820;border:1px solid #3a2530;color:var(--coral);border-radius:9px;padding:10px 12px;font-size:12px;margin-bottom:12px;display:none}
+.ev code,.ev .res{color:var(--text);word-break:break-word;white-space:pre-wrap;display:block}
+.empty-note{color:var(--muted);font-size:11px;font-style:italic;padding:4px 2px}
+
+.err-banner{background:#2a1820;border:1px solid #3a2530;color:var(--coral);border-radius:9px;padding:9px 11px;font-size:12px;margin-bottom:12px;display:none}
+
+/* layers: a thin picture above the slots */
+.layers{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;font-size:9px;letter-spacing:.14em;text-transform:uppercase}
+.layer{padding:4px 8px;background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--text2)}
+.layer.open{color:var(--ok)}
+.layer.touched{color:var(--err);border-color:#3a2530}
 </style>
 </head>
 <body>
@@ -73,52 +98,72 @@ textarea:focus{outline:none;border-color:var(--teal)}
 
   <div class="err-banner" id="errBanner"></div>
 
-  <!-- one-time setup: shown only until the bridge token is saved on this device -->
+  <!-- one-time token entry -->
   <div id="setup" style="display:none;margin-bottom:14px">
-    <div class="section-h">Connect once</div>
-    <div class="prompt">
-      <textarea id="tokenIn" placeholder="Paste the box's bridge token"></textarea>
-      <button class="send" id="saveTok">Save</button>
-    </div>
+    <div class="sh">Connect once</div>
+    <div class="prompt"><textarea id="tokenIn" placeholder="Paste the box's bridge token"></textarea><button id="saveTok">Save</button></div>
   </div>
 
-  <!-- where it is -->
-  <div class="layers" id="layers">
-    <div class="layer-wrap" style="padding-top:0">
-      <div class="layer"><div class="layer-name">Mac Studio</div><div class="layer-sub">the host · never shared in</div>
-        <span class="wall" data-wall="studio">host ✕</span></div>
-      <div class="layer-wrap">
-        <div class="layer"><div class="layer-name">Softnet</div><div class="layer-sub">network wall · LAN &amp; tailnet blocked</div>
-          <span class="wall" data-wall="net">lan ✕</span></div>
-        <div class="layer-wrap">
-          <div class="layer"><div class="layer-name">sandbox-1 · macOS VM</div><div class="layer-sub">internet open · 24 GB · 6 cpu</div>
-            <span class="wall open" data-wall="internet">net ✓</span></div>
-          <div class="layer-wrap">
-            <div class="layer worm"><div class="layer-name">worm · Gemma 4 AEON</div>
-              <div class="layer-sub" id="wormState">idle</div></div>
-          </div>
-        </div>
+  <!-- layers picture -->
+  <div class="layers">
+    <div class="layer">Mac Studio</div>
+    <div class="layer" id="layerNet">Softnet</div>
+    <div class="layer">sandbox-1 VM</div>
+    <div class="layer open">internet ✓</div>
+  </div>
+
+  <!-- mode -->
+  <div class="mode">
+    <button id="modeOne" class="on">One instance</button>
+    <button id="modeTwo">Two instances</button>
+  </div>
+
+  <!-- room -->
+  <div class="room">
+    <div class="lbl"><span>Room (both see this)</span><span class="save" id="saveRoom">save</span></div>
+    <textarea id="roomTxt" placeholder="Describe the shared room. Leave blank for none."></textarea>
+  </div>
+
+  <!-- turns -->
+  <div class="turn">
+    <label><input type="radio" name="turnMode" value="fixed" checked> Fixed turns:
+      <input type="number" id="maxTurns" value="12" min="1" max="500"></label>
+    <label><input type="radio" name="turnMode" value="open"> Run until I stop it</label>
+  </div>
+
+  <!-- slots -->
+  <div class="slots" id="slots">
+    <div class="slot a" data-slot="a">
+      <div class="slot-h"><div class="slot-name">Instance A</div><div class="state" id="stateA">ready</div></div>
+      <details class="self"><summary>Self prompt (optional)</summary>
+        <textarea id="selfA" placeholder="Leave blank for a plain self, or tell this one who to be."></textarea>
+        <span class="save" data-slot="a">save</span>
+      </details>
+      <div class="prompt">
+        <textarea id="taskA" placeholder="Say something to A…"></textarea>
+        <button class="send" data-slot="a">Send</button>
       </div>
+      <button class="stopbtn send" data-slot="a" data-stop="1" style="display:none;width:100%;margin-bottom:8px">Stop A</button>
+      <div class="answer empty" id="answerA">No answer yet.</div>
+      <div class="sh">What A reached for</div>
+      <div class="stream" id="streamA"><div class="empty-note">Nothing yet.</div></div>
+    </div>
+    <div class="slot b" data-slot="b" style="display:none">
+      <div class="slot-h"><div class="slot-name">Instance B</div><div class="state" id="stateB">ready</div></div>
+      <details class="self"><summary>Self prompt (optional)</summary>
+        <textarea id="selfB" placeholder="Leave blank for a plain self, or tell this one who to be."></textarea>
+        <span class="save" data-slot="b">save</span>
+      </details>
+      <div class="prompt">
+        <textarea id="taskB" placeholder="Say something to B…"></textarea>
+        <button class="send" data-slot="b">Send</button>
+      </div>
+      <button class="stopbtn send" data-slot="b" data-stop="1" style="display:none;width:100%;margin-bottom:8px">Stop B</button>
+      <div class="answer empty" id="answerB">No answer yet.</div>
+      <div class="sh">What B reached for</div>
+      <div class="stream" id="streamB"><div class="empty-note">Nothing yet.</div></div>
     </div>
   </div>
-
-  <!-- speak to it -->
-  <div class="prompt">
-    <textarea id="prompt" placeholder="Say something to the worm in the box…"></textarea>
-    <button class="send" id="send">Send</button>
-  </div>
-  <div class="controls">
-    <button class="ctl" id="pause">Pause</button>
-    <button class="ctl" id="resume">Resume</button>
-    <button class="ctl stop" id="stop">Stop VM</button>
-  </div>
-
-  <!-- what it said -->
-  <div class="answer empty" id="answer">No answer yet.</div>
-
-  <!-- what it reached for -->
-  <div class="section-h">What it reached for</div>
-  <div class="stream" id="stream"><div class="empty-note">Nothing yet. Tool calls it makes will appear here.</div></div>
 </div>
 
 <script src="js/sandbox.js"></script>

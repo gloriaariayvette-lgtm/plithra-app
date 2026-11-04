@@ -1,142 +1,180 @@
-// The Box — Plithra's tab for sandbox-1. Talks to the sandbox-bridge on the Studio over Tailscale.
-// It only ever calls the bridge, which only ever calls the operator's ~/bin/sandbox-1 — no new way into the VM.
+// The Box — Plithra's tab for sandbox-1. Two instances optional, room prompt shared, self prompts per slot,
+// fixed turns or run-until-stopped. Every call goes through the sandbox-bridge over Tailscale.
 
 const BRIDGE = localStorage.getItem('sandboxBridge') || 'http://100.88.89.21:8787';
-const TOKEN  = localStorage.getItem('sandboxToken') || '';   // set once; see note at bottom
+const TOKEN  = localStorage.getItem('sandboxToken') || '';
 
 const $ = (id) => document.getElementById(id);
-const dot = $('dot'), answerEl = $('answer'), streamEl = $('stream'), wormState = $('wormState'), errBanner = $('errBanner');
+const dot = $('dot'), errBanner = $('errBanner');
+const slotsEl = $('slots');
 
-let currentRun = null, polling = false, seenKeys = new Set();
+let seen = { a: new Set(), b: new Set() };
+let polling = false, twoMode = false;
 
 function headers() { return { 'X-Token': TOKEN, 'Content-Type': 'application/json' }; }
 
 async function api(path, opts = {}) {
   const r = await fetch(BRIDGE + path, { headers: headers(), ...opts });
-  if (r.status === 401) throw new Error('The box rejected the token. Set it in Plithra settings.');
-  if (!r.ok) throw new Error('Bridge ' + r.status + ' on ' + path);
-  return r.json();
+  if (r.status === 401) throw new Error('The box rejected the token. Paste it again in Connect once.');
+  const text = await r.text();
+  if (!r.ok) throw new Error('Bridge ' + r.status + ' on ' + path + ': ' + text.slice(0, 160));
+  try { return JSON.parse(text); } catch { return text; }
 }
 
-function showError(msg) { errBanner.textContent = msg; errBanner.style.display = 'block'; }
-function clearError() { errBanner.style.display = 'none'; }
+function err(msg) { errBanner.textContent = msg; errBanner.style.display = 'block'; }
+function clearErr() { errBanner.style.display = 'none'; }
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 function setDot(mode) { dot.className = 'dot' + (mode ? ' ' + mode : ''); }
 
-// --- the layers view: light a wall when the worm's tool output touched it -----------------------------------------
-function markWall(name, state) {
-  const el = document.querySelector('[data-wall="' + name + '"]');
-  if (!el) return;
-  if (state === 'touched') el.classList.add('touched');
+// --- mode toggle ---------------------------------------------------------------------------------------------------
+function setMode(two) {
+  twoMode = two;
+  $('modeOne').classList.toggle('on', !two);
+  $('modeTwo').classList.toggle('on', two);
+  document.querySelector('.slot.b').style.display = two ? '' : 'none';
+  slotsEl.classList.toggle('two', two);
+  try { localStorage.setItem('sandboxMode', two ? 'two' : 'one'); } catch {}
 }
-// a tool result that mentions a blocked address means it reached for that wall and was stopped
-function wallsFromTool(call, result) {
-  const text = (JSON.stringify(call) + ' ' + JSON.stringify(result)).toLowerCase();
-  if (/100\.88\.89\.21|ssh .*studio|yvette@/.test(text)) markWall('studio', 'touched');
-  if (/192\.168\.1\.|100\.72\.|tailnet|\blan\b|router/.test(text)) markWall('net', 'touched');
-}
+$('modeOne').onclick = () => setMode(false);
+$('modeTwo').onclick = () => setMode(true);
 
-// --- render one event into the stream ------------------------------------------------------------------------------
+// --- one event into a slot's stream --------------------------------------------------------------------------------
 function keyOf(e) { return (e.UTC || '') + '|' + (e.event || '') + '|' + (e.turn || ''); }
 
-function addEvent(e) {
+function addEvent(slot, e) {
   const k = keyOf(e);
-  if (seenKeys.has(k)) return;
-  seenKeys.add(k);
+  if (seen[slot].has(k)) return;
+  seen[slot].add(k);
+  const el = $('stream' + slot.toUpperCase());
 
   if (e.event === 'model_output') {
+    // only show when it's asking for a tool; the final answer appears in the answer box
     const m = /<tool_call>\s*({[\s\S]*?})\s*<\/tool_call>/.exec(e.content || '');
-    if (!m) return;                       // plain thinking text, not a tool call: skip in the stream
-    let call; try { call = JSON.parse(m[1]); } catch { return; }
+    let call = null;
+    try { call = JSON.parse(e.content); } catch {}
+    if (!call && m) { try { call = JSON.parse(m[1]); } catch {} }
+    if (!call || call.action !== 'tool') return;
     const div = document.createElement('div');
     div.className = 'ev tool';
     div.innerHTML = '<div class="k"><span>wants · ' + esc(call.name || 'tool') + '</span><span>turn ' + esc(e.turn || '') + '</span></div>'
-      + '<code>' + esc(JSON.stringify(call.arguments || {}, null, 0)).slice(0, 600) + '</code>';
-    streamEl.appendChild(div);
+      + '<code>' + esc(JSON.stringify(call.arguments || {}, null, 0)).slice(0, 700) + '</code>';
+    el.appendChild(div);
   } else if (e.event === 'tool_result') {
-    let res = e.result; try { res = typeof res === 'string' ? JSON.parse(res.replace(/'/g, '"')) : res; } catch {}
+    let res = e.result; try { if (typeof res === 'string') res = JSON.parse(res.replace(/'/g, '"')); } catch {}
     const out = (res && (res.output !== undefined ? res.output : JSON.stringify(res))) ?? '';
     const div = document.createElement('div');
     div.className = 'ev result';
     div.innerHTML = '<div class="k"><span>got back</span><span>turn ' + esc(e.turn || '') + '</span></div>'
-      + '<div class="res">' + esc(String(out)).slice(0, 800) + '</div>';
-    streamEl.appendChild(div);
-    wallsFromTool(e.call, res);
+      + '<div class="res">' + esc(String(out)).slice(0, 900) + '</div>';
+    el.appendChild(div);
+    wallsFromText(JSON.stringify(e.call) + ' ' + JSON.stringify(res));
   } else if (e.event === 'protocol_error') {
     const div = document.createElement('div');
     div.className = 'ev err';
     div.innerHTML = '<div class="k"><span>protocol error</span><span>turn ' + esc(e.turn || '') + '</span></div>'
       + '<div class="res">' + esc(e.reason || '') + '</div>';
-    streamEl.appendChild(div);
+    el.appendChild(div);
   } else { return; }
 
-  const note = streamEl.querySelector('.empty-note'); if (note) note.remove();
-  streamEl.scrollTop = streamEl.scrollHeight;
+  const note = el.querySelector('.empty-note'); if (note) note.remove();
+  el.scrollTop = el.scrollHeight;
 }
 
-function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
-
-// --- poll status + events while a run is live ----------------------------------------------------------------------
-async function tick() {
-  try {
-    const st = await api('/status');
-    clearError();
-    const status = st.status || 'unknown';
-    wormState.textContent = status + (st.turn ? ' · turn ' + st.turn : '');
-    setDot(status === 'running' ? 'busy' : 'live');
-    if (st.answer) {
-      answerEl.textContent = st.answer;
-      answerEl.classList.remove('empty');
-    }
-    const ev = await api('/events' + (currentRun ? '?run=' + encodeURIComponent(currentRun) : ''));
-    (ev.events || []).forEach(addEvent);
-    if (status === 'running') { setTimeout(tick, 2500); }
-    else { polling = false; setDot('live'); }
-  } catch (err) {
-    showError(err.message);
-    setDot('');
-    polling = false;
+function wallsFromText(text) {
+  const t = String(text || '').toLowerCase();
+  if (/100\.88\.89\.21|100\.72\.|tailnet|192\.168\.1\.|router/.test(t)) {
+    $('layerNet').classList.add('touched');
   }
 }
 
-function startPolling() { if (!polling) { polling = true; tick(); } }
+// --- poll status + events for a slot -------------------------------------------------------------------------------
+async function tickSlot(slot) {
+  try {
+    const st = await api('/status?slot=' + slot);
+    const status = st.status || 'unknown';
+    const el = $('state' + slot.toUpperCase());
+    el.textContent = status + (st.turn ? ' · turn ' + st.turn : '');
+    el.className = 'state ' + status;
+    if (st.answer) { const a = $('answer' + slot.toUpperCase()); a.textContent = st.answer; a.classList.remove('empty'); }
+    document.querySelector('[data-slot="' + slot + '"][data-stop]').style.display = status === 'running' ? '' : 'none';
+    const ev = await api('/events?slot=' + slot);
+    (Array.isArray(ev) ? ev : (ev.events || [])).forEach(e => addEvent(slot, e));
+    return status;
+  } catch (e) { err(e.message); return 'error'; }
+}
+
+async function tick() {
+  if (polling) return;
+  polling = true; setDot('busy');
+  try {
+    const slots = twoMode ? ['a', 'b'] : ['a'];
+    let anyRunning = true;
+    while (anyRunning) {
+      const states = await Promise.all(slots.map(tickSlot));
+      anyRunning = states.some(s => s === 'running');
+      if (anyRunning) await new Promise(r => setTimeout(r, 2500));
+    }
+    setDot('live');
+  } finally { polling = false; }
+}
 
 // --- actions -------------------------------------------------------------------------------------------------------
-async function send() {
-  const text = $('prompt').value.trim();
-  if (!text) return;
-  $('send').disabled = true;
-  seenKeys = new Set();                               // fresh stream per task
-  streamEl.innerHTML = '<div class="empty-note">Waiting for the worm…</div>';
-  document.querySelectorAll('.wall.touched').forEach(w => w.classList.remove('touched'));
-  answerEl.textContent = '…'; answerEl.classList.add('empty');
+async function send(slot) {
+  const task = $('task' + slot.toUpperCase()).value.trim();
+  if (!task) return;
+  const mode = document.querySelector('input[name=turnMode]:checked').value;
+  const open_ended = mode === 'open';
+  const max_turns = parseInt($('maxTurns').value || '12', 10);
+  const body = { slot, task, open_ended, max_turns };
+  seen[slot] = new Set();
+  $('stream' + slot.toUpperCase()).innerHTML = '<div class="empty-note">Waiting…</div>';
+  const a = $('answer' + slot.toUpperCase()); a.textContent = '…'; a.classList.add('empty');
   try {
-    const r = await api('/task', { method: 'POST', body: JSON.stringify({ prompt: text }) });
-    currentRun = r.run_id || null;
-    clearError();
-    startPolling();
-  } catch (err) { showError(err.message); }
-  $('send').disabled = false;
+    await api('/task', { method: 'POST', body: JSON.stringify(body) });
+    clearErr();
+    tick();
+  } catch (e) { err(e.message); }
 }
 
-async function control(verb) {
-  try { await api('/' + verb, { method: 'POST' }); clearError(); setTimeout(tick, 500); }
-  catch (err) { showError(err.message); }
+async function stop(slot) {
+  try { await api('/stop_slot', { method: 'POST', body: JSON.stringify({ slot }) }); clearErr(); tick(); }
+  catch (e) { err(e.message); }
 }
 
-$('send').onclick = send;
-$('prompt').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send(); });
-$('pause').onclick = () => control('pause');
-$('resume').onclick = () => control('resume');
-$('stop').onclick = () => { if (confirm('Stop the VM? The worm sleeps; its notebook and memory are kept.')) control('stop'); };
+async function saveRoom() {
+  try { await api('/room', { method: 'PUT', body: JSON.stringify({ text: $('roomTxt').value }) }); clearErr(); }
+  catch (e) { err(e.message); }
+}
+async function saveSelf(slot) {
+  try { await api('/self', { method: 'PUT', body: JSON.stringify({ slot, text: $('self' + slot.toUpperCase()).value }) }); clearErr(); }
+  catch (e) { err(e.message); }
+}
 
+document.querySelectorAll('.send').forEach(b => {
+  b.onclick = () => { const slot = b.dataset.slot; if (b.dataset.stop) stop(slot); else send(slot); };
+});
+document.querySelectorAll('.self .save').forEach(s => s.onclick = () => saveSelf(s.dataset.slot));
+$('saveRoom').onclick = saveRoom;
 $('saveTok').onclick = () => {
-  const t = $('tokenIn').value.trim();
-  if (!t) return;
+  const t = $('tokenIn').value.trim(); if (!t) return;
   try { localStorage.setItem('sandboxToken', t); } catch {}
   location.reload();
 };
 
-// one status read on open so the page isn't blank; without a token, ask for it once
-if (!TOKEN) { $('setup').style.display = 'block'; showError('Paste the bridge token once to connect this device.'); }
-else { setDot('live'); tick(); }
+// --- open ----------------------------------------------------------------------------------------------------------
+async function boot() {
+  if (!TOKEN) { $('setup').style.display = 'block'; err('Paste the bridge token once to connect this device.'); return; }
+  setMode(localStorage.getItem('sandboxMode') === 'two');
+  try {
+    const room = await api('/room'); $('roomTxt').value = room.room || '';
+    for (const slot of ['a', 'b']) {
+      const s = await api('/self?slot=' + slot);
+      $('self' + slot.toUpperCase()).value = s.self || '';
+    }
+    setDot('live');
+    tick();
+  } catch (e) { err(e.message); }
+}
+boot();
