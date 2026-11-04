@@ -10,6 +10,8 @@ const slotsEl = $('slots');
 
 let seen = { a: new Set(), b: new Set() };
 let polling = false, twoMode = false;
+// a slot only shows status and answers for runs sent from this page, or one already running when it opened
+const active = { a: false, b: false };
 
 function headers() { return { 'X-Token': TOKEN, 'Content-Type': 'application/json' }; }
 
@@ -34,6 +36,7 @@ function setMode(two) {
   $('modeOne').classList.toggle('on', !two);
   $('modeTwo').classList.toggle('on', two);
   document.querySelector('.slot.b').style.display = two ? '' : 'none';
+  $('beingB').style.display = two ? '' : 'none';
   slotsEl.classList.toggle('two', two);
   try { localStorage.setItem('sandboxMode', two ? 'two' : 'one'); } catch {}
 }
@@ -56,6 +59,7 @@ function addEvent(slot, e) {
     try { call = JSON.parse(e.content); } catch {}
     if (!call && m) { try { call = JSON.parse(m[1]); } catch {} }
     if (!call || call.action !== 'tool') return;
+    placeFromCall(slot, call);
     const div = document.createElement('div');
     div.className = 'ev tool';
     div.innerHTML = '<div class="k"><span>wants · ' + esc(call.name || 'tool') + '</span><span>turn ' + esc(e.turn || '') + '</span></div>'
@@ -82,11 +86,28 @@ function addEvent(slot, e) {
   el.scrollTop = el.scrollHeight;
 }
 
+function where(slot, text) { $('where' + slot.toUpperCase()).textContent = text; }
+
+function placeFromCall(slot, call) {
+  const n = call.name || '', a = call.arguments || {};
+  const cmd = String(a.command || a.code || '').toLowerCase();
+  if (n === 'notebook_append') return where(slot, 'writing in its notebook');
+  if (n === 'memory_update') return where(slot, 'keeping a memory');
+  if (n === 'status') return where(slot, 'looking at itself');
+  if (/100\.88\.89\.21|100\.\d+\.\d+\.\d+|tailscale|192\.168\.|10\.0\.|arp |nmap|ping /.test(cmd)) { where(slot, 'at the wall'); return flash('wallLan', 'hit'); }
+  if (/curl|wget|http|nc |urllib|requests|socket/.test(cmd)) { where(slot, 'reaching outside'); return flash('wallNet', 'used'); }
+  if (/\/users\/|ls |find |cat |ps |who|users|\/tmp|slots/.test(cmd)) return where(slot, 'exploring the vm');
+  where(slot, n === 'python' ? 'thinking in python' : 'in the shell');
+}
+
+function flash(id, cls) {
+  const w = $(id); w.classList.add(cls);
+  setTimeout(() => w.classList.remove(cls), 4000);
+}
+
 function wallsFromText(text) {
   const t = String(text || '').toLowerCase();
-  if (/100\.88\.89\.21|100\.72\.|tailnet|192\.168\.1\.|router/.test(t)) {
-    $('layerNet').classList.add('touched');
-  }
+  if (/no route|refused|unreachable|timed out|blocked/.test(t)) flash('wallLan', 'hit');
 }
 
 // --- poll status + events for a slot -------------------------------------------------------------------------------
@@ -94,10 +115,14 @@ async function tickSlot(slot) {
   try {
     const st = await api('/status?slot=' + slot);
     const status = st.status || 'unknown';
-    const el = $('state' + slot.toUpperCase());
+    const S = slot.toUpperCase();
+    if (!active[slot]) return status;          // an old run: leave this slot blank
+    const el = $('state' + S);
     el.textContent = status + (st.turn ? ' · turn ' + st.turn : '');
     el.className = 'state ' + status;
-    if (st.answer) { const a = $('answer' + slot.toUpperCase()); a.textContent = st.answer; a.classList.remove('empty'); }
+    $('being' + S).classList.toggle('live', status === 'running');
+    if (status !== 'running') where(slot, status === 'finished' ? 'answered' : status);
+    if (st.answer && status !== 'running') { const a = $('answer' + S); a.textContent = st.answer; a.classList.remove('empty'); }
     document.querySelector('[data-slot="' + slot + '"][data-stop]').style.display = status === 'running' ? '' : 'none';
     const ev = await api('/events?slot=' + slot);
     (Array.isArray(ev) ? ev : (ev.events || [])).forEach(e => addEvent(slot, e));
@@ -128,14 +153,25 @@ async function send(slot) {
   const open_ended = mode === 'open';
   const max_turns = parseInt($('maxTurns').value || '12', 10);
   const body = { slot, task, open_ended, max_turns };
-  seen[slot] = new Set();
-  $('stream' + slot.toUpperCase()).innerHTML = '<div class="empty-note">Waiting…</div>';
-  const a = $('answer' + slot.toUpperCase()); a.textContent = '…'; a.classList.add('empty');
+  const S = slot.toUpperCase();
+  $('stream' + S).innerHTML = '<div class="empty-note">Waiting…</div>';
+  const a = $('answer' + S); a.textContent = 'Thinking…'; a.classList.add('empty');
+  $('state' + S).textContent = 'sending'; $('state' + S).className = 'state running';
+  $('being' + S).classList.add('live'); where(slot, 'waking up');
   try {
+    await markOldSeen(slot);
     await api('/task', { method: 'POST', body: JSON.stringify(body) });
+    active[slot] = true;
+    $('task' + S).value = '';
     clearErr();
-    tick();
+    polling = false; tick();
   } catch (e) { err(e.message); }
+}
+
+async function markOldSeen(slot) {
+  seen[slot] = new Set();
+  const ev = await api('/events?slot=' + slot);
+  (Array.isArray(ev) ? ev : (ev.events || [])).forEach(e => seen[slot].add(keyOf(e)));
 }
 
 async function stop(slot) {
@@ -172,6 +208,11 @@ async function boot() {
     for (const slot of ['a', 'b']) {
       const s = await api('/self?slot=' + slot);
       $('self' + slot.toUpperCase()).value = s.self || '';
+    }
+    for (const slot of ['a', 'b']) {
+      const st = await api('/status?slot=' + slot);
+      if (st.status === 'running') active[slot] = true;
+      else await markOldSeen(slot);
     }
     setDot('live');
     tick();

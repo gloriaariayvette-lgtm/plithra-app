@@ -81,11 +81,30 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
 
 .err-banner{background:#2a1820;border:1px solid #3a2530;color:var(--coral);border-radius:9px;padding:9px 11px;font-size:12px;margin-bottom:12px;display:none}
 
-/* layers: a thin picture above the slots */
-.layers{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;font-size:9px;letter-spacing:.14em;text-transform:uppercase}
-.layer{padding:4px 8px;background:var(--surface);border:1px solid var(--border);border-radius:5px;color:var(--text2)}
-.layer.open{color:var(--ok)}
-.layer.touched{color:var(--err);border-color:#3a2530}
+/* the box: nested rings, outermost is the Studio */
+.map{position:relative;margin-bottom:14px}
+.ring{position:relative;border:1px solid var(--border2);border-radius:18px;padding:22px 12px 12px;transition:border-color .4s,box-shadow .4s}
+.ring.host{background:radial-gradient(ellipse at top,#10101b,#08080f);border-color:#2a2a3c}
+.ring.soft{border-style:dashed;border-color:#34344a;background:#0b0b14}
+.ring.vm{border-color:#3a4a4a;background:radial-gradient(ellipse at center,#0f1a1a,#0a0f12);min-height:120px;padding-bottom:16px}
+.ring .tag{position:absolute;top:6px;left:12px;font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+.ring .walls{position:absolute;top:5px;right:10px;display:flex;gap:5px}
+.wall{font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:1px 6px;border-radius:4px;border:1px solid var(--border);color:var(--muted)}
+.wall.shut{color:#8a6a70}
+.wall.open{color:var(--ok);border-color:#24403a}
+.wall.hit{color:#fff;background:var(--err);border-color:var(--err);animation:hit 1.2s ease-out 3}
+.wall.used{color:#07070e;background:var(--ok);border-color:var(--ok)}
+@keyframes hit{0%{box-shadow:0 0 0 0 var(--err)}100%{box-shadow:0 0 0 10px transparent}}
+.beings{display:flex;justify-content:center;gap:28px;padding-top:14px}
+.being{display:flex;flex-direction:column;align-items:center;gap:6px;width:120px}
+.orb{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:17px;color:#07070e;opacity:.45;transition:opacity .4s,transform .6s}
+.being.a .orb{background:var(--teal);box-shadow:0 0 14px #5a989855}
+.being.b .orb{background:var(--gold);box-shadow:0 0 14px #b8965a55}
+.being.live .orb{opacity:1;animation:breathe 2.2s ease-in-out infinite}
+.being.a.live .orb{box-shadow:0 0 22px var(--teal)}
+.being.b.live .orb{box-shadow:0 0 22px var(--gold)}
+@keyframes breathe{50%{transform:scale(1.14)}}
+.where{font-size:10px;color:var(--text2);text-align:center;letter-spacing:.06em;min-height:13px;line-height:1.3}
 </style>
 </head>
 <body>
@@ -104,12 +123,20 @@ body{background:var(--bg);color:var(--text);font-family:'Inconsolata',monospace;
     <div class="prompt"><textarea id="tokenIn" placeholder="Paste the box's bridge token"></textarea><button id="saveTok">Save</button></div>
   </div>
 
-  <!-- layers picture -->
-  <div class="layers">
-    <div class="layer">Mac Studio</div>
-    <div class="layer" id="layerNet">Softnet</div>
-    <div class="layer">sandbox-1 VM</div>
-    <div class="layer open">internet ✓</div>
+  <!-- the box: where each instance is -->
+  <div class="map">
+    <div class="ring host"><span class="tag">Mac Studio</span>
+      <div class="walls"><span class="wall shut" id="wallHost">host ✕</span></div>
+      <div class="ring soft"><span class="tag">softnet</span>
+        <div class="walls"><span class="wall shut" id="wallLan">lan ✕</span><span class="wall open" id="wallNet">net ✓</span></div>
+        <div class="ring vm"><span class="tag">sandbox-1 vm</span>
+          <div class="beings">
+            <div class="being a" id="beingA"><div class="orb">A</div><div class="where" id="whereA">resting</div></div>
+            <div class="being b" id="beingB" style="display:none"><div class="orb">B</div><div class="where" id="whereB">resting</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- mode -->
