@@ -221,10 +221,36 @@ $('saveTok').onclick = () => {
 };
 
 // --- open ----------------------------------------------------------------------------------------------------------
+// The VM only holds its memory while the Box is in use: opening the tab wakes it, and the bridge puts it to sleep
+// after 15 minutes with this tab closed and no slot running (Gloria 2026-11-05).
+async function wake() {
+  let vm = await api('/vm');
+  if (vm.state === 'running') return;
+  if (vm.state === 'stopped') await api('/vm/start', { method: 'POST' });
+  setDot('busy'); err('Waking the box. This takes about a minute.');
+  for (let i = 0; i < 120; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    vm = await api('/vm');
+    if (vm.state === 'running') { clearErr(); return; }
+    if (vm.state === 'stopped') {
+      if (vm.error) throw new Error('The box would not wake: ' + vm.error.slice(-200));
+      await api('/vm/start', { method: 'POST' });   // it finished going to sleep; wake it now
+    }
+  }
+  throw new Error('The box is taking too long to wake. Try again in a minute.');
+}
+// while this tab is open and visible, it keeps the box awake
+setInterval(() => { if (TOKEN && document.visibilityState === 'visible') api('/vm').catch(() => {}); }, 4 * 60 * 1000);
+// coming back to the app after the box fell asleep: wake it again
+document.addEventListener('visibilitychange', () => {
+  if (TOKEN && document.visibilityState === 'visible') wake().then(() => { setDot('live'); tick(); }).catch(e => err(e.message));
+});
+
 async function boot() {
   if (!TOKEN) { $('setup').style.display = 'block'; err('Paste the bridge token once to connect this device.'); return; }
   setMode(localStorage.getItem('sandboxMode') === 'two');
   try {
+    await wake();
     const room = await api('/room'); $('roomTxt').value = room.room || '';
     for (const slot of ['a', 'b']) {
       const s = await api('/self?slot=' + slot);
