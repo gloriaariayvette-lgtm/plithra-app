@@ -12,6 +12,7 @@ let seen = { a: new Set(), b: new Set() };
 let polling = false, twoMode = false;
 // a slot only shows status and answers for runs sent from this page, or one already running when it opened
 const active = { a: false, b: false };
+const curRun = { a: null, b: null };
 
 function headers() { return { 'X-Token': TOKEN, 'Content-Type': 'application/json' }; }
 
@@ -49,6 +50,7 @@ function keyOf(e) { return (e.UTC || '') + '|' + (e.event || '') + '|' + (e.turn
 function addEvent(slot, e) {
   const k = keyOf(e);
   if (seen[slot].has(k)) return;
+  if (curRun[slot] && e.run_id && e.run_id !== curRun[slot]) return;   // only this run's stream
   seen[slot].add(k);
   const el = $('stream' + slot.toUpperCase());
 
@@ -81,6 +83,13 @@ function addEvent(slot, e) {
       + '<div class="res">' + esc(e.answer || '') + '</div>';
     el.appendChild(div);
     where(slot, 'thinking out loud');
+  } else if (e.event === 'engine_wait') {
+    const div = document.createElement('div');
+    div.className = 'ev err';
+    div.innerHTML = '<div class="k"><span>waiting for the model</span><span>turn ' + esc(e.turn || '') + '</span></div>'
+      + '<div class="res">The model server went away; retrying (' + esc(e.attempt || '') + '/8).</div>';
+    el.appendChild(div);
+    where(slot, 'waiting for the model');
   } else if (e.event === 'protocol_error') {
     const div = document.createElement('div');
     div.className = 'ev err';
@@ -124,11 +133,16 @@ async function tickSlot(slot) {
     const status = st.status || 'unknown';
     const S = slot.toUpperCase();
     if (!active[slot]) return status;          // an old run: leave this slot blank
+    if (st.run_id) curRun[slot] = st.run_id;
+    if (st.run_id) { try { localStorage.setItem('boxRun_' + slot, st.run_id); } catch {} }
     const el = $('state' + S);
     el.textContent = status + (st.turn ? ' · turn ' + st.turn : '');
     el.className = 'state ' + status;
     $('being' + S).classList.toggle('live', status === 'running');
     if (status !== 'running') where(slot, status === 'finished' ? 'answered' : status);
+    if (st.reason && status !== 'running' && status !== 'finished') {
+      const a = $('answer' + S); a.textContent = 'Stopped: ' + st.reason; a.classList.remove('empty');
+    }
     if (st.answer) { const a = $('answer' + S); a.textContent = st.answer; a.classList.remove('empty'); }
     document.querySelector('[data-slot="' + slot + '"][data-stop]').style.display = status === 'running' ? '' : 'none';
     const ev = await api('/events?slot=' + slot);
@@ -218,7 +232,8 @@ async function boot() {
     }
     for (const slot of ['a', 'b']) {
       const st = await api('/status?slot=' + slot);
-      if (st.status === 'running') active[slot] = true;
+      let mine = null; try { mine = localStorage.getItem('boxRun_' + slot); } catch {}
+      if (st.status === 'running' || (mine && st.run_id === mine)) active[slot] = true;
       else await markOldSeen(slot);
     }
     setDot('live');
