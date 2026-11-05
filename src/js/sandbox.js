@@ -74,6 +74,13 @@ function addEvent(slot, e) {
       + '<div class="res">' + esc(String(out)).slice(0, 900) + '</div>';
     el.appendChild(div);
     wallsFromText(JSON.stringify(e.call) + ' ' + JSON.stringify(res));
+  } else if (e.event === 'thought') {
+    const div = document.createElement('div');
+    div.className = 'ev thought';
+    div.innerHTML = '<div class="k"><span>said</span><span>turn ' + esc(e.turn || '') + '</span></div>'
+      + '<div class="res">' + esc(e.answer || '') + '</div>';
+    el.appendChild(div);
+    where(slot, 'thinking out loud');
   } else if (e.event === 'protocol_error') {
     const div = document.createElement('div');
     div.className = 'ev err';
@@ -122,7 +129,7 @@ async function tickSlot(slot) {
     el.className = 'state ' + status;
     $('being' + S).classList.toggle('live', status === 'running');
     if (status !== 'running') where(slot, status === 'finished' ? 'answered' : status);
-    if (st.answer && status !== 'running') { const a = $('answer' + S); a.textContent = st.answer; a.classList.remove('empty'); }
+    if (st.answer) { const a = $('answer' + S); a.textContent = st.answer; a.classList.remove('empty'); }
     document.querySelector('[data-slot="' + slot + '"][data-stop]').style.display = status === 'running' ? '' : 'none';
     const ev = await api('/events?slot=' + slot);
     (Array.isArray(ev) ? ev : (ev.events || [])).forEach(e => addEvent(slot, e));
